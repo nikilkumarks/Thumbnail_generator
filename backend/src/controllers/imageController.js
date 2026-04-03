@@ -82,4 +82,25 @@ const getHistory = async (req, res) => {
   }
 };
 
-module.exports = { generateImage, getHistory };
+// @desc    Delete a generation
+// @route   DELETE /api/images/:id
+// @access  Private
+const deleteGeneration = async (req, res) => {
+  try {
+    const generation = await Generation.findOneAndDelete({ 
+      _id: req.params.id, 
+      user: req.user._id 
+    });
+
+    if (!generation) {
+      return res.status(404).json({ message: 'Generation not found or unauthorized' });
+    }
+
+    res.json({ success: true, message: 'Generation deleted' });
+  } catch (error) {
+    console.error("❌ Delete Error:", error.message);
+    res.status(500).json({ message: 'Failed to delete creation' });
+  }
+};
+
+module.exports = { generateImage, getHistory, deleteGeneration };
