@@ -5,6 +5,7 @@ import api from '../api';
 import Navbar from '../components/Navbar';
 import LoginModal from '../components/LoginModal';
 import Sidebar from '../components/Sidebar';
+import Footer from '../components/Footer';
 import { Send, Loader2, Download, Image as ImageIcon, Sparkles, Wand2, Video, Gamepad2, Monitor, Camera, Tv, ChevronLeft, Menu, Stars, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -148,7 +149,17 @@ const Home = () => {
           </div>
         )}
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', position: 'relative' }} className="main-content-scroll">
+        {/* 🎨 PromptVision Immersive Workspace */}
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '1.5rem',
+          position: 'relative',
+          background: 'linear-gradient(rgba(10, 10, 10, 0.92), rgba(10, 10, 10, 0.92)), url("https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed'
+        }} className="main-content-scroll">
           {user && (
             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -297,32 +308,32 @@ const Home = () => {
             <Info size={14} /> {error}
           </div>}
 
-          <div className="chat-input-wrapper" style={{ 
-            background: '#1A1A1A', 
-            borderRadius: '12px', 
-            border: '1px solid #222', 
+          <div className="chat-input-wrapper" style={{
+            background: '#1A1A1A',
+            borderRadius: '12px',
+            border: '1px solid #222',
             padding: '12px 14px',
             transition: 'all 0.2s ease',
             display: 'flex',
             flexDirection: 'column',
             gap: '8px'
           }} id="studio-input">
-            <textarea 
-              className="chat-input" 
-              placeholder="Describe your next viral vision..." 
-              rows={1} 
-              value={prompt} 
-              onChange={(e) => { 
-                e.target.style.height = 'auto'; 
-                e.target.style.height = e.target.scrollHeight + 'px'; 
-                setPrompt(e.target.value); 
-              }} 
-              onKeyDown={(e) => { 
-                if (e.key === 'Enter' && !e.shiftKey) { 
-                  e.preventDefault(); 
-                  handleSend(); 
-                } 
-              }} 
+            <textarea
+              className="chat-input"
+              placeholder="Describe your next viral vision..."
+              rows={1}
+              value={prompt}
+              onChange={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = e.target.scrollHeight + 'px';
+                setPrompt(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
               style={{
                 background: 'transparent',
                 border: 'none',
@@ -338,12 +349,12 @@ const Home = () => {
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
               <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <button 
+                <button
                   title="Upload Asset"
-                  style={{ 
-                    background: 'transparent', 
-                    border: 'none', 
-                    padding: '8px', 
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    padding: '8px',
                     borderRadius: '8px',
                     color: '#444',
                     display: 'flex',
@@ -357,12 +368,12 @@ const Home = () => {
                 >
                   <ImageIcon size={19} />
                 </button>
-                <button 
+                <button
                   title="Prompt Tools"
-                  style={{ 
-                    background: 'transparent', 
-                    border: 'none', 
-                    padding: '8px', 
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    padding: '8px',
                     borderRadius: '8px',
                     color: '#444',
                     display: 'flex',
@@ -377,17 +388,17 @@ const Home = () => {
                   <Menu size={19} />
                 </button>
               </div>
-              <button 
-                onClick={handleSend} 
-                disabled={!prompt.trim() || generating} 
-                style={{ 
-                  background: prompt.trim() ? 'var(--youtube-red)' : '#262626', 
-                  color: 'white', 
-                  width: '36px', 
-                  height: '36px', 
-                  borderRadius: '8px', 
-                  display: 'grid', 
-                  placeItems: 'center', 
+              <button
+                onClick={handleSend}
+                disabled={!prompt.trim() || generating}
+                style={{
+                  background: prompt.trim() ? 'var(--youtube-red)' : '#262626',
+                  color: 'white',
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  display: 'grid',
+                  placeItems: 'center',
                   transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                   cursor: prompt.trim() ? 'pointer' : 'default',
                   border: 'none'
@@ -398,9 +409,9 @@ const Home = () => {
               </button>
             </div>
           </div>
-          <p style={{ textAlign: 'center', fontSize: '0.65rem', color: '#222', fontWeight: '800', letterSpacing: '1px', marginTop: '1.5rem' }}>
-            {user ? `PROMPT VISION ACTIVE • FLUX.1 ENGINE` : 'SIGN IN TO UNLOCK PRO GENERATION'}
-          </p>
+          <div style={{ marginTop: '0.5rem' }}>
+             <Footer />
+          </div>
         </div>
       </div>
 
