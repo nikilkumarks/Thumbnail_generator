@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const Footer = () => {
   return (
@@ -24,27 +25,14 @@ const Footer = () => {
 
       {/* 📜 Compact Horizon Links */}
       <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.625rem', fontWeight: '800', letterSpacing: '1px' }}>
-        {[
-          { label: 'PRIVACY' },
-          { label: 'TERMS' },
-          { label: 'SECURITY' }
-        ].map((link, i) => (
-          <a 
-            key={i}
-            href="#" 
-            onClick={(e) => e.preventDefault()}
-            style={{ color: '#555', textDecoration: 'none', transition: 'color 0.2s' }}
-            onMouseEnter={(e) => e.target.style.color = 'white'}
-            onMouseLeave={(e) => e.target.style.color = '#555'}
-          >
-            {link.label}
-          </a>
-        ))}
+        <Link to="/privacy" className="footer-link">PRIVACY</Link>
+        <Link to="/terms" className="footer-link">TERMS</Link>
+        <Link to="/security" className="footer-link">SECURITY</Link>
       </div>
 
       <style>{`
-        footer a { border-bottom: 2px solid transparent; }
-        footer a:hover { border-bottom-color: var(--youtube-red); }
+        .footer-link { color: #555; text-decoration: none; transition: color 0.2s; border-bottom: 2px solid transparent; }
+        .footer-link:hover { color: white; border-bottom-color: var(--youtube-red); }
       `}</style>
     </footer>
   );

@@ -5,6 +5,9 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
+import Security from './pages/Security';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -26,6 +29,9 @@ function App() {
               
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/security" element={<Security />} />
             </Routes>
           </div>
         </AuthProvider>
