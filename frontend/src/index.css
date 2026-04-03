@@ -1,0 +1,138 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
+
+:root {
+  --youtube-red: #FF0000;
+  --youtube-black: #0F0F0F;
+  --youtube-white: #FFFFFF;
+  --bg-dark: #0F0F0F;
+  --bg-card: #1A1A1A;
+  --border: #2A2A2A;
+  --text-main: #FFFFFF;
+  --text-muted: #AAAAAA;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Roboto', sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+input, textarea {
+  font-family: inherit;
+}
+
+.premium-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.btn-primary {
+  background-color: var(--youtube-red);
+  color: white;
+  font-weight: 700;
+  padding: 0.8rem 1.5rem;
+  border-radius: 4px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #CC0000;
+}
+
+.btn-secondary {
+  background-color: #2F2F2F;
+  color: white;
+  font-weight: 500;
+  padding: 0.6rem 1.2rem;
+  border-radius: 100px;
+}
+
+.btn-secondary:hover {
+  background-color: #3F3F3F;
+}
+
+.input-field {
+  background: #212121;
+  border: 1px solid var(--border);
+  color: white;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  outline: none;
+}
+
+.input-field:focus {
+  border-color: #AAAAAA;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease forwards;
+}
+
+/* Chat Input Styling */
+.chat-input-wrapper {
+  background: #1A1A1A;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 0.75rem;
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-input {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1.1rem;
+  padding: 0.5rem;
+  resize: none;
+  outline: none;
+  min-height: 48px;
+}
+
+/* Modal Styling */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85); /* Darker backdrop as per mockup vibes */
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 2.5rem;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 440px;
+  position: relative;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
