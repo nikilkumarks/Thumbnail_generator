@@ -61,16 +61,16 @@ const Navbar = () => {
             fontSize: '1rem', 
             fontWeight: '900', 
             color: 'white', 
-            letterSpacing: '-0.3px',
+            letterSpacing: '1px',
             lineHeight: '1'
-          }}>THUMBNAIL</span>
+          }}>PROMPT</span>
           <span style={{ 
             fontSize: '0.75rem', 
             fontWeight: '600', 
             color: 'var(--youtube-red)', 
-            letterSpacing: '2px',
+            letterSpacing: '3px',
             lineHeight: '1.2'
-          }}>STUDIO PRO</span>
+          }}>VISION PRO</span>
         </div>
       </Link>
       

@@ -9,7 +9,7 @@ const Register = () => {
   const [formData, setFormData] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { register, googleLoginSuccess } = useAuth();
+  const { register, handleGoogleSuccess } = useAuth();
   const navigate = useNavigate();
 
   const handleInputChange = (e) => {
@@ -63,11 +63,11 @@ const Register = () => {
                <Video size={48} fill="currentColor" strokeWidth={0} />
             </div>
             <h1 style={{ fontSize: '2.5rem', fontWeight: '900', marginBottom: '1.5rem', letterSpacing: '-1.5px', lineHeight: '1.1' }}>
-              VISION TO <br/>
-              <span style={{ color: 'var(--youtube-red)' }}>REVENUE.</span>
+              PROMPT <br/>
+              <span style={{ color: 'var(--youtube-red)' }}>VISION.</span>
             </h1>
             <p style={{ color: '#888', fontSize: '1rem', lineHeight: '1.6', marginBottom: '3.5rem', fontWeight: '500' }}>
-              Create an account to access the AI tools that generate industry-leading, high-CTR YouTube thumbnails.
+              PromptVision generates optimized, high-CTR thumbnails engineered for viral growth and channel authority.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -90,7 +90,7 @@ const Register = () => {
           {/* Right Pane: Simple Studio Onboarding */}
           <div style={{ flex: 1, padding: '4rem', backgroundColor: '#0F0F0F', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <div style={{ marginBottom: '2.5rem' }}>
-               <h2 style={{ fontSize: '1.75rem', fontWeight: '900', marginBottom: '0.5rem', letterSpacing: '-0.5px' }}>Get Started</h2>
+               <h2 style={{ fontSize: '1.75rem', fontWeight: '900', marginBottom: '0.5rem', letterSpacing: '-0.5px' }}>PromptVision Join</h2>
                <p style={{ color: '#444', fontSize: '0.85rem', fontWeight: '600', letterSpacing: '0.5px' }}>Create your pro creator account.</p>
             </div>
 
@@ -187,7 +187,7 @@ const Register = () => {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <GoogleLogin onSuccess={googleLoginSuccess} onError={() => setError('Google Sign-In failed')} theme="filled_black" shape="pill" width={320} />
+              <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => setError('Google Sign-In failed')} theme="filled_black" shape="pill" width={320} />
             </div>
 
             <p style={{ textAlign: 'center', marginTop: '2.5rem', color: '#444', fontSize: '0.875rem', fontWeight: '500' }}>
