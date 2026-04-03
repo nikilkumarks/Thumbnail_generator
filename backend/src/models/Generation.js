@@ -6,6 +6,10 @@ const generationSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  conversation: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Conversation',
+  },
   prompt: {
     type: String,
     required: true,

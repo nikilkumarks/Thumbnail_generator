@@ -1,12 +1,13 @@
 const Generation = require('../models/Generation');
+const Conversation = require('../models/Conversation');
 const { CohereClient } = require("cohere-ai");
 const { HfInference } = require("@huggingface/inference");
 
-// @desc    Generate a thumbnail image using Cohere AI + Hugging Face (FLUX.1-schnell)
+// @desc    Generate a thumbnail image (Threaded Conversation)
 // @route   POST /api/images/generate
 // @access  Private
 const generateImage = async (req, res) => {
-  const { prompt } = req.body;
+  const { prompt, conversationId } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ message: 'Prompt is required' });
@@ -15,91 +16,92 @@ const generateImage = async (req, res) => {
   const COHERE_KEY = process.env.COHERE_API_KEY?.trim();
   const HF_TOKEN = process.env.HUGGINGFACE_TOKEN?.trim();
 
-  if (!COHERE_KEY) return res.status(500).json({ message: 'Cohere API Key is missing' });
-  if (!HF_TOKEN) return res.status(500).json({ message: 'Hugging Face Token is missing in .env' });
+  if (!COHERE_KEY || !HF_TOKEN) {
+    return res.status(500).json({ message: 'API Keys are missing in .env' });
+  }
 
   try {
-    // 🧠 1. Refine prompt using Cohere (The Brain)
+    //  ब्रेन (Refining the prompt)
     const cohere = new CohereClient({ token: COHERE_KEY });
     const responseChat = await cohere.chat({
       model: "command-r-08-2024",
-      message: `Create a single paragraph prompt for an image generator. Focus on a vibrant YouTube thumbnail style for this topic: ${prompt}. No commentary, just the prompt.`,
+      message: `Refine this into a high-quality video thumbnail description: ${prompt}`,
     });
-
+    
     const refinedPrompt = responseChat.text.trim().replace(/^["'\s]+|["'\s]+$/g, "");
-    console.log("Hugging Face Prompt:", refinedPrompt);
 
-    // 🎨 2. Generate Image using Hugging Face (The Artist - FLUX.1)
+    // आर्टिस्ट (Generating the visual)
     const hf = new HfInference(HF_TOKEN);
-
-    // Model selection (FLUX.1-schnell is state-of-the-art for fast generation)
     const blob = await hf.textToImage({
       model: "black-forest-labs/FLUX.1-schnell",
       inputs: refinedPrompt,
-      parameters: {
-        width: 1024,
-        height: 576, // 16:9 ratio
-      }
+      parameters: { width: 1280, height: 720 }
     });
 
-    // 🔄 3. Convert Blob to Base64 (Data URI)
     const buffer = Buffer.from(await blob.arrayBuffer());
-    const base64Image = buffer.toString('base64');
-    const imageUrl = `data:image/png;base64,${base64Image}`;
+    const imageUrl = `data:image/png;base64,${buffer.toString('base64')}`;
 
-    // 💾 4. Save to DB
-    const generation = await Generation.create({
+    // 🧵 Threading Logic
+    let convo;
+    if (conversationId) {
+      convo = await Conversation.findOne({ _id: conversationId, user: req.user._id });
+    }
+
+    if (!convo) {
+      convo = await Conversation.create({ 
+        user: req.user._id, 
+        title: prompt.slice(0, 30) + (prompt.length > 30 ? '...' : '') 
+      });
+    }
+
+    const gen = await Generation.create({
       user: req.user._id,
+      conversation: convo._id,
       prompt: refinedPrompt,
-      imageUrl, // Store the Base64 in DB for now (easy to display in local)
+      imageUrl
     });
 
-    // 🚀 5. Final Response
+    convo.generations.push(gen._id);
+    await convo.save();
+
     res.status(201).json({
       success: true,
       imageUrl,
       prompt: refinedPrompt,
-      createdAt: generation.createdAt,
+      conversationId: convo._id,
+      createdAt: gen.createdAt
     });
 
   } catch (error) {
-    console.error("❌ Hugging Face Service Error:", error.message);
-    res.status(500).json({
-      success: false,
-      message: error.message || "AI generation failed",
-    });
+    console.error("❌ AI Error:", error.message);
+    res.status(500).json({ success: false, message: 'Generation failed' });
   }
 };
 
-// @desc    Get user history
+// @desc    Get user history (Conversations)
 const getHistory = async (req, res) => {
   try {
-    const history = await Generation.find({ user: req.user._id }).sort({ createdAt: -1 });
+    const history = await Conversation.find({ user: req.user._id })
+      .populate('generations')
+      .sort({ updatedAt: -1 });
     res.json(history);
   } catch (error) {
-    console.error("❌ History Error:", error.message);
-    res.status(500).json({ message: 'Failed to fetch history' });
+    res.status(500).json({ message: 'History failed' });
   }
 };
 
-// @desc    Delete a generation
-// @route   DELETE /api/images/:id
-// @access  Private
+// @desc    Delete a Thread
 const deleteGeneration = async (req, res) => {
   try {
-    const generation = await Generation.findOneAndDelete({ 
-      _id: req.params.id, 
-      user: req.user._id 
-    });
-
-    if (!generation) {
-      return res.status(404).json({ message: 'Generation not found or unauthorized' });
-    }
-
-    res.json({ success: true, message: 'Generation deleted' });
+    const convo = await Conversation.findOneAndDelete({ _id: req.params.id, user: req.user._id });
+    if (!convo) return res.status(404).json({ message: 'Not found' });
+    
+    // Cleanup images in that thread
+    await Generation.deleteMany({ conversation: convo._id });
+    
+    res.json({ success: true, message: 'Thread deleted' });
   } catch (error) {
-    console.error("❌ Delete Error:", error.message);
-    res.status(500).json({ message: 'Failed to delete creation' });
+    res.status(500).json({ message: 'Delete failed' });
   }
 };
 

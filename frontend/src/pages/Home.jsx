@@ -53,10 +53,13 @@ const Home = () => {
 
   const handleSelectWork = (item) => {
     setCurrentId(item._id);
-    setMessages([
-      { type: 'prompt', content: item.prompt },
-      { type: 'image', content: item.imageUrl, prompt: item.prompt }
-    ]);
+    // Load ALL generations of this thread
+    const threadMessages = [];
+    item.generations.forEach(gen => {
+       threadMessages.push({ type: 'prompt', content: gen.prompt });
+       threadMessages.push({ type: 'image', content: gen.imageUrl, prompt: gen.prompt });
+    });
+    setMessages(threadMessages);
   };
 
   const handleDeleteWork = async (id) => {
@@ -89,19 +92,30 @@ const Home = () => {
     }
 
     const currentPrompt = prompt;
+    // Store the ID we're sending to keep UI in sync
+    const activeConvoId = currentId;
+    
     setMessages(prev => [...prev, { type: 'prompt', content: currentPrompt }]);
     setPrompt('');
     setGenerating(true);
     setError('');
 
     try {
-      const { data } = await api.post('/images/generate', { prompt: currentPrompt });
+      const { data } = await api.post('/images/generate', { 
+        prompt: currentPrompt,
+        conversationId: activeConvoId
+      });
+      
       if (data.success) {
         const newMessage = { type: 'image', content: data.imageUrl, prompt: currentPrompt };
         setMessages(prev => [...prev, newMessage]);
+        
+        // Lock to this thread if it was new
+        if (!activeConvoId) setCurrentId(data.conversationId);
+        
         fetchHistory();
       } else {
-        setError('Failed up generate thumbnail. Please try again.');
+        setError('Failed to generate thumbnail.');
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Server error occurred.');

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { History, Plus, Image as ImageIcon, Trash2, Search, X, Clock } from 'lucide-react';
+import { History, Plus, Image as ImageIcon, Trash2, Search, X, Clock, MessageSquare } from 'lucide-react';
 
 const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentId }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredHistory = history.filter(item => 
-    item.prompt.toLowerCase().includes(searchTerm.toLowerCase())
+    item.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    item.generations?.[0]?.prompt?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -34,7 +35,7 @@ const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentI
           <Search size={16} color="#666" />
           <input 
             type="text"
-            placeholder="Search creations..."
+            placeholder="Search chats..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -47,14 +48,7 @@ const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentI
               outline: 'none'
             }}
           />
-          {searchTerm && (
-            <X 
-              size={14} 
-              color="#666" 
-              onClick={() => setSearchTerm('')} 
-              style={{ cursor: 'pointer' }}
-            />
-          )}
+          {searchTerm && <X size={14} color="#666" onClick={() => setSearchTerm('')} style={{ cursor: 'pointer' }} />}
         </div>
       </div>
 
@@ -73,7 +67,6 @@ const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentI
             gap: '12px',
             fontSize: '0.875rem',
             fontWeight: '500',
-            transition: 'all 0.2s',
             cursor: 'pointer',
             textAlign: 'left'
           }}
@@ -82,7 +75,7 @@ const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentI
           <div style={{ width: '24px', height: '24px', background: 'var(--youtube-red)', borderRadius: '6px', display: 'grid', placeItems: 'center' }}>
             <Plus size={16} />
           </div>
-          New Generation
+          New Creation
         </button>
       </div>
 
@@ -94,18 +87,15 @@ const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentI
           fontWeight: '700', 
           textTransform: 'uppercase', 
           color: 'var(--text-muted)',
-          letterSpacing: '0.5px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
+          letterSpacing: '0.5px'
         }}>
-          <History size={12} /> {searchTerm ? `Found ${filteredHistory.length}` : 'History'}
+          Recent Threads
         </div>
 
         {filteredHistory.length === 0 ? (
           <div style={{ padding: '2rem 1rem', textAlign: 'center', color: '#555', fontSize: '0.875rem' }}>
             <Clock size={32} style={{ marginBottom: '0.5rem', opacity: 0.5, margin: '0 auto' }} />
-            <p>{searchTerm ? 'No results found' : 'Start creating masterpieces.'}</p>
+            <p>{searchTerm ? 'No threads found' : 'Start your first thread.'}</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -140,7 +130,11 @@ const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentI
                     background: '#1A1A1A',
                     border: '1px solid #333'
                   }}>
-                    <img src={item.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {item.generations?.[0] ? (
+                      <img src={item.generations[item.generations.length-1].imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}><MessageSquare size={12} /></div>
+                    )}
                   </div>
                   
                   <span style={{ 
@@ -149,14 +143,14 @@ const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentI
                     overflow: 'hidden', 
                     textOverflow: 'ellipsis'
                   }}>
-                    {item.prompt}
+                    {item.title}
                   </span>
                 </button>
 
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (window.confirm("Delete this creation?")) {
+                    if (window.confirm("Delete this entire chat thread?")) {
                       onDeleteWork(item._id);
                     }
                   }}
@@ -170,11 +164,6 @@ const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentI
                     cursor: 'pointer',
                     zIndex: 2,
                     padding: '4px',
-                    borderRadius: '4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'color 0.2s'
                   }}
                 >
                   <Trash2 size={14} />
@@ -187,15 +176,15 @@ const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentI
 
       <div style={{ padding: '1rem', borderTop: '1px solid #333', background: '#090909' }}>
          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-            <div style={{ width: '8px', height: '8px', background: '#FF4C4C', borderRadius: '50%' }}></div>
-            Free Generation (Cohere/HF)
+            <div style={{ width: '8px', height: '8px', background: '#19c37d', borderRadius: '50%' }}></div>
+            Conversational Mode Active
          </div>
       </div>
 
       <style>{`
         .sidebar-history-item .trash-btn { opacity: 0; }
         .sidebar-history-item:hover .trash-btn { opacity: 1; }
-        .trash-btn:hover { color: #FF4C4C !important; background: rgba(255,0,0,0.1) !important; }
+        .trash-btn:hover { color: #FF4C4C !important; background: rgba(255,0,0,0.1) !important; border-radius: 4px; }
         .sidebar-new-btn:hover { background: rgba(255,255,255,0.05) !important; border-color: #FF0000 !important; }
       `}</style>
     </div>
