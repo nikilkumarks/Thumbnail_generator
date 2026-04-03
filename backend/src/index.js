@@ -8,6 +8,11 @@ const imageRoutes = require('./routes/imageRoutes');
 // Load environment variables
 dotenv.config();
 
+console.log('--- Environment Check ---');
+console.log('GEMINI_API_KEY Length:', process.env.GEMINI_API_KEY?.trim()?.length || 0);
+console.log('IMAGE_GEN_API_KEY Length:', process.env.IMAGE_GEN_API_KEY?.trim()?.length || 0);
+console.log('------------------------');
+
 // Connect to MongoDB
 connectDB();
 
