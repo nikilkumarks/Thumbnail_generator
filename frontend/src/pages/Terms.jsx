@@ -1,10 +1,16 @@
 import React from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { motion } from 'framer-motion';
 
 const Terms = () => {
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--youtube-black)', color: 'white', display: 'flex', flexDirection: 'column' }}>
+    <motion.div 
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }} 
+      transition={{ duration: 0.4 }}
+      style={{ minHeight: '100vh', backgroundColor: 'var(--youtube-black)', color: 'white', display: 'flex', flexDirection: 'column' }}
+    >
       <Navbar />
       <div style={{ flex: 1, maxWidth: '800px', margin: '6rem auto', padding: '0 2rem' }} className="fade-in">
         <h1 style={{ fontSize: '3rem', fontWeight: '900', marginBottom: '2rem', letterSpacing: '-2px' }}>TERMS OF <span style={{ color: 'var(--youtube-red)' }}>USE.</span></h1>
@@ -31,7 +37,7 @@ const Terms = () => {
         </section>
       </div>
       <Footer />
-    </div>
+    </motion.div>
   );
 };
 

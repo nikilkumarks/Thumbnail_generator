@@ -127,7 +127,12 @@ const Home = () => {
   const sidebarWidth = isSidebarCollapsed ? '0px' : '260px';
 
   return (
-    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--youtube-black)', color: 'white' }}>
+    <motion.div 
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }} 
+      transition={{ duration: 0.4 }}
+      style={{ height: '100dvh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--youtube-black)', color: 'white' }}
+    >
       <Navbar />
 
       <LoginModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
@@ -422,7 +427,7 @@ const Home = () => {
         .send-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.1); }
         .chat-input::placeholder { color: #555; }
       `}</style>
-    </div>
+    </motion.div>
   );
 };
 

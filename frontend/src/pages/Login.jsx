@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
+import { motion } from 'framer-motion';
 import { Mail, Lock, Sparkles, ArrowRight, Video, Zap, Cpu, Palette, Info } from 'lucide-react';
 import Navbar from '../components/Navbar';
 
@@ -30,7 +31,12 @@ const Login = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--youtube-black)', color: 'white', display: 'flex', flexDirection: 'column' }}>
+    <motion.div 
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }} 
+      transition={{ duration: 0.4 }}
+      style={{ minHeight: '100vh', backgroundColor: 'var(--youtube-black)', color: 'white', display: 'flex', flexDirection: 'column' }}
+    >
       <Navbar />
       
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2.5rem' }}>
@@ -179,7 +185,7 @@ const Login = () => {
           .main-auth-card { flex-direction: column !important; }
         }
       `}</style>
-    </div>
+    </motion.div>
   );
 };
 
