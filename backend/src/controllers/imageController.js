@@ -1,7 +1,10 @@
 const Generation = require('../models/Generation');
 const { CohereClient } = require("cohere-ai");
+const { HfInference } = require("@huggingface/inference");
 
-// @desc Generate thumbnail
+// @desc    Generate a thumbnail image using Cohere AI + Hugging Face (FLUX.1-schnell)
+// @route   POST /api/images/generate
+// @access  Private
 const generateImage = async (req, res) => {
   const { prompt } = req.body;
 
@@ -9,53 +12,49 @@ const generateImage = async (req, res) => {
     return res.status(400).json({ message: 'Prompt is required' });
   }
 
-  let refinedPrompt = "";
+  const COHERE_KEY = process.env.COHERE_API_KEY?.trim();
+  const HF_TOKEN = process.env.HUGGINGFACE_TOKEN?.trim();
+
+  if (!COHERE_KEY) return res.status(500).json({ message: 'Cohere API Key is missing' });
+  if (!HF_TOKEN) return res.status(500).json({ message: 'Hugging Face Token is missing in .env' });
 
   try {
-    // 🧠 1. Try Cohere (optional enhancement)
-    try {
-      const cohere = new CohereClient({
-        token: process.env.COHERE_API_KEY,
-      });
+    // 🧠 1. Refine prompt using Cohere (The Brain)
+    const cohere = new CohereClient({ token: COHERE_KEY });
+    const responseChat = await cohere.chat({
+      model: "command-r-08-2024",
+      message: `Create a single paragraph prompt for an image generator. Focus on a vibrant YouTube thumbnail style for this topic: ${prompt}. No commentary, just the prompt.`,
+    });
 
-      const response = await cohere.chat({
-        model: "command-r-08-2024", // may vary per account
-        message: `Convert this into a SHORT image prompt (keywords only, no paragraph):
-        ${prompt}`,
-      });
+    const refinedPrompt = responseChat.text.trim().replace(/^["'\s]+|["'\s]+$/g, "");
+    console.log("Hugging Face Prompt:", refinedPrompt);
 
-      refinedPrompt = response.text
-        ?.replace(/^"|"$/g, "")
-        ?.slice(0, 200);
+    // 🎨 2. Generate Image using Hugging Face (The Artist - FLUX.1)
+    const hf = new HfInference(HF_TOKEN);
 
-    } catch (cohereError) {
-      console.log("⚠️ Cohere failed, using fallback prompt");
-    }
+    // Model selection (FLUX.1-schnell is state-of-the-art for fast generation)
+    const blob = await hf.textToImage({
+      model: "black-forest-labs/FLUX.1-schnell",
+      inputs: refinedPrompt,
+      parameters: {
+        width: 1024,
+        height: 576, // 16:9 ratio
+      }
+    });
 
-    // 🔥 2. Fallback (VERY IMPORTANT)
-    if (!refinedPrompt) {
-      refinedPrompt = `
-      YouTube thumbnail, vibrant colors, high contrast,
-      cinematic lighting, clickbait style, 16:9, ${prompt}
-      `;
-    }
+    // 🔄 3. Convert Blob to Base64 (Data URI)
+    const buffer = Buffer.from(await blob.arrayBuffer());
+    const base64Image = buffer.toString('base64');
+    const imageUrl = `data:image/png;base64,${base64Image}`;
 
-    // 🎨 3. Generate Pollinations URL (Modern 'p/' endpoint)
-    const width = 1280;
-    const height = 720;
-
-    const imageUrl = `https://pollinations.ai/prompt/${encodeURIComponent(
-      refinedPrompt
-    )}?width=${width}&height=${height}&nologo=true`;
-
-    // 💾 4. Save
+    // 💾 4. Save to DB
     const generation = await Generation.create({
       user: req.user._id,
       prompt: refinedPrompt,
-      imageUrl,
+      imageUrl, // Store the Base64 in DB for now (easy to display in local)
     });
 
-    // 🚀 5. Response
+    // 🚀 5. Final Response
     res.status(201).json({
       success: true,
       imageUrl,
@@ -64,18 +63,15 @@ const generateImage = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error:", error.message);
-
+    console.error("❌ Hugging Face Service Error:", error.message);
     res.status(500).json({
       success: false,
-      message: "Image generation failed",
+      message: error.message || "AI generation failed",
     });
   }
 };
 
-// @desc    Get all generations for the logged in user
-// @route   GET /api/images/history
-// @access  Private
+// @desc    Get user history
 const getHistory = async (req, res) => {
   try {
     const history = await Generation.find({ user: req.user._id }).sort({ createdAt: -1 });
