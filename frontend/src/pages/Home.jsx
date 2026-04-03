@@ -4,11 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Navbar from '../components/Navbar';
 import LoginModal from '../components/LoginModal';
-import { Send, Loader2, Download, Image as ImageIcon, Sparkles, Wand2, Play, Layout, Camera, Monitor, Gamepad2, Tv, Video } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-
 import Sidebar from '../components/Sidebar';
-import { ChevronLeft, ChevronRight, Menu } from 'lucide-react';
+import { Send, Loader2, Download, Image as ImageIcon, Sparkles, Wand2, Video, Gamepad2, Monitor, Camera, Tv, ChevronLeft, Menu, Stars, Info } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Home = () => {
   const [prompt, setPrompt] = useState('');
@@ -27,7 +25,6 @@ const Home = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Fetch history on user login
   useEffect(() => {
     if (user) {
       fetchHistory();
@@ -53,11 +50,10 @@ const Home = () => {
 
   const handleSelectWork = (item) => {
     setCurrentId(item._id);
-    // Load ALL generations of this thread
     const threadMessages = [];
     item.generations.forEach(gen => {
        threadMessages.push({ type: 'prompt', content: gen.prompt });
-       threadMessages.push({ type: 'image', content: gen.imageUrl, prompt: gen.prompt });
+       threadMessages.push({ type: 'image', content: gen.imageUrl, prompt: gen.prompt, id: gen._id });
     });
     setMessages(threadMessages);
   };
@@ -92,7 +88,6 @@ const Home = () => {
     }
 
     const currentPrompt = prompt;
-    // Store the ID we're sending to keep UI in sync
     const activeConvoId = currentId;
     
     setMessages(prev => [...prev, { type: 'prompt', content: currentPrompt }]);
@@ -107,12 +102,9 @@ const Home = () => {
       });
       
       if (data.success) {
-        const newMessage = { type: 'image', content: data.imageUrl, prompt: currentPrompt };
+        const newMessage = { type: 'image', content: data.imageUrl, prompt: currentPrompt, id: Date.now() };
         setMessages(prev => [...prev, newMessage]);
-        
-        // Lock to this thread if it was new
         if (!activeConvoId) setCurrentId(data.conversationId);
-        
         fetchHistory();
       } else {
         setError('Failed to generate thumbnail.');
@@ -125,213 +117,200 @@ const Home = () => {
   };
 
   const chips = [
+    { label: 'E-commerce Sale', icon: <Stars size={14} color="#FFD700" /> },
     { label: 'Gaming Highlights', icon: <Gamepad2 size={14} /> },
-    { label: 'Cooking Tutorial', icon: <Monitor size={14} /> },
     { label: 'Travel Vlog', icon: <Camera size={14} /> },
-    { label: 'Reaction Video', icon: <Tv size={14} /> },
+    { label: 'Unboxing Video', icon: <Tv size={14} /> },
   ];
 
   const sidebarWidth = isSidebarCollapsed ? '0px' : '260px';
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--youtube-black)', color: 'white' }}>
+    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--youtube-black)', color: 'white' }}>
       <Navbar />
       
       <LoginModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Sidebar - Logged in only */}
         {user && (
           <div 
             className="sidebar-wrapper"
             style={{ 
               width: sidebarWidth, 
-              transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
+              transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)', 
               overflow: 'hidden',
               flexShrink: 0,
-              backgroundColor: '#0F0F0F'
+              backgroundColor: '#0A0A0A',
+              borderRight: '1px solid rgba(255,255,255,0.05)'
             }}
           >
-            <Sidebar 
-              history={rawHistory} 
-              onNewChat={handleNewChat} 
-              onSelectWork={handleSelectWork}
-              onDeleteWork={handleDeleteWork}
-              currentId={currentId}
-            />
+            <Sidebar history={rawHistory} onNewChat={handleNewChat} onSelectWork={handleSelectWork} onDeleteWork={handleDeleteWork} currentId={currentId} />
           </div>
         )}
 
-        {/* Main Content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', position: 'relative' }}>
-          {/* Collapse Toggle Handle */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', position: 'relative' }} className="main-content-scroll">
           {user && (
             <button
                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                className="sidebar-toggle"
                style={{
                  position: 'absolute',
-                 left: '1rem',
-                 top: '1rem',
+                 left: '1.25rem',
+                 top: '1.25rem',
                  zIndex: 50,
-                 background: '#2A2A2A',
-                 border: 'none',
-                 borderRadius: '8px',
+                 background: 'rgba(255, 255, 255, 0.05)',
+                 backdropFilter: 'blur(8px)',
+                 border: '1px solid rgba(255,255,255,0.1)',
+                 borderRadius: '10px',
                  padding: '8px',
                  color: 'white',
                  display: 'flex',
                  alignItems: 'center',
                  justifyContent: 'center',
-                 cursor: 'pointer'
+                 cursor: 'pointer',
+                 transition: 'all 0.2s'
                }}
             >
-              {isSidebarCollapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
+              {isSidebarCollapsed ? <Menu size={18} /> : <ChevronLeft size={18} />}
             </button>
           )}
 
-          <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+          <div style={{ maxWidth: '850px', margin: '0 auto', width: '100%' }}>
             {messages.length === 0 && !generating && (
-              <div style={{ textAlign: 'center', marginTop: '12vh' }} className="fade-in">
-                <div style={{ color: 'var(--youtube-red)', marginBottom: '1.5rem', display: 'flex', justifyContent: 'center' }}>
-                  <Video size={64} fill="currentColor" strokeWidth={0} />
+              <div style={{ marginTop: '8vh', padding: '0 1rem' }} className="fade-in">
+                <div style={{ marginBottom: '4rem' }}>
+                   <h1 style={{ fontSize: '3.5rem', fontWeight: '900', marginBottom: '1rem', letterSpacing: '-1.5px', color: 'white' }}>Studio Dashboard.</h1>
+                   <p style={{ color: '#555', fontSize: '1.2rem', fontWeight: '600', letterSpacing: '0.5px' }}>CHOOSE YOUR CREATIVE ENGINE TO START</p>
                 </div>
-                <h1 style={{ fontSize: '3rem', fontWeight: '900', marginBottom: '0.5rem', letterSpacing: '-1px' }}>What thumbnail can we dream up?</h1>
-                <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem', fontWeight: '500' }}>Create, edit, and explore thumbnails optimized for CTR.</p>
                 
-                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '2.5rem', flexWrap: 'wrap' }}>
-                  {chips.map((chip, i) => (
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
+                  gap: '1.5rem', 
+                  marginTop: '2rem' 
+                }}>
+                  {[
+                    { title: 'Gamer Pack', desc: 'High-contrast, action-packed gaming visual previews.', icon: <Gamepad2 size={24} />, prompt: 'High-intensity, cinematic gaming action scene with glowing effects and bold highlights.' },
+                    { title: 'Lifestyle Vlog', desc: 'Natural, airy, and inviting travel or lifestyle themes.', icon: <Camera size={24} />, prompt: 'Minimalist, bright, and vibrant travel vlog thumbnail with natural lighting and soft focus.' },
+                    { title: 'Tech Review', desc: 'Sharp, precision-focused hardware and gadget setups.', icon: <Monitor size={24} />, prompt: 'High-tech, sleek hardware setup with professional studio lighting and clean depth of field.' },
+                    { title: 'Educational', desc: 'Clean, structured, and informative visual layouts.', icon: <Stars size={24} />, prompt: 'Informative, clean tutorial thumbnail with easy-to-read layout and clear focus on the subject.' }
+                  ].map((pack, i) => (
                     <button 
-                      key={i}
-                      onClick={() => setPrompt(chip.label)}
-                      className="btn-secondary"
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem' }}
+                      key={i} 
+                      onClick={() => setPrompt(pack.prompt)} 
+                      style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        textAlign: 'left',
+                        padding: '1.5rem',
+                        background: '#0F0F0F',
+                        border: '1px solid #222',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        gap: '1rem'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#444'; e.currentTarget.style.background = '#151515'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#222'; e.currentTarget.style.background = '#0F0F0F'; }}
                     >
-                      {chip.icon} {chip.label}
+                      <div style={{ color: 'var(--youtube-red)' }}>{pack.icon}</div>
+                      <div>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '0.25rem', color: 'white' }}>{pack.title}</h3>
+                        <p style={{ fontSize: '0.85rem', color: '#555', fontWeight: '500', lineHeight: '1.5' }}>{pack.desc}</p>
+                      </div>
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '10rem' }}>
-              {messages.map((msg, index) => (
-                <div key={index}>
-                  {msg.type === 'prompt' ? (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <div style={{ background: '#212121', padding: '0.8rem 1.2rem', borderRadius: '18px 18px 2px 18px', maxWidth: '80%', color: 'white' }}>
-                        <p style={{ fontSize: '1rem', fontWeight: '400' }}>{msg.content}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                      <div style={{ width: '32px', height: '32px', background: 'var(--youtube-red)', borderRadius: '4px', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                         <Sparkles size={16} color="white" />
-                      </div>
-                      <div className="premium-card" style={{ padding: '1rem', borderRadius: '12px', width: '100%', maxWidth: '640px' }}>
-                        <img 
-                          src={msg.content} 
-                          alt="Generated" 
-                          style={{ width: '100%', borderRadius: '4px', aspectRadio: '16/9', objectFit: 'cover' }} 
-                        />
-                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
-                          <button 
-                            className="btn-primary"
-                            style={{ borderRadius: '4px', padding: '0.5rem 1rem', fontSize: '0.8rem' }}
-                            onClick={() => {
-                              const link = document.createElement('a');
-                              link.href = msg.content;
-                              link.download = `thumbnail-${Date.now()}.png`;
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                            }}
-                          >
-                            <Download size={14} /> Download
-                          </button>
-                          <button 
-                             onClick={() => setPrompt(`Update this design: ${msg.prompt}`)}
-                             style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.5rem 1rem', fontSize: '0.8rem', color: 'white' }}
-                          >
-                            <Wand2 size={14} /> Re-prompt
-                          </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem', paddingBottom: '12rem', marginTop: '2rem' }}>
+              <AnimatePresence>
+                {messages.map((msg, index) => (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    key={index}
+                  >
+                    {msg.type === 'prompt' ? (
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+                        <div style={{ background: '#1F1F1F', border: '1px solid #333', padding: '1rem 1.4rem', borderRadius: '20px 20px 4px 20px', maxWidth: '85%', color: '#DDD' }}>
+                          <p style={{ fontSize: '1rem', lineHeight: '1.5' }}>{msg.content}</p>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    ) : (
+                      <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
+                        <div style={{ width: '36px', height: '36px', background: 'var(--youtube-red)', borderRadius: '8px', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
+                           <Sparkles size={18} color="white" fill="currentColor" strokeWidth={0} />
+                        </div>
+                        <div className="premium-card" style={{ overflow: 'hidden', width: '100%', maxWidth: '720px' }}>
+                          <img src={msg.content} alt="Generated" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }} />
+                          <div style={{ padding: '1rem 1.25rem', background: '#0F0F0F', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #222' }}>
+                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                              <button className="btn-primary" style={{ height: '38px', padding: '0 1.25rem', fontSize: '0.8125rem', borderRadius: '6px' }} onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = msg.content;
+                                link.download = `thumb-${Date.now()}.png`;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              }}>
+                                <Download size={14} /> DOWNLOAD HD
+                              </button>
+                              <button onClick={() => setPrompt(`${msg.prompt}`)} style={{ background: 'transparent', border: '1px solid #333', borderRadius: '6px', padding: '0 1.25rem', fontSize: '0.8125rem', height: '38px', color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Wand2 size={14} /> RE-PROMPT
+                              </button>
+                            </div>
+                            <div style={{ color: '#444', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '1px' }}>1280 × 720 • PNG</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
 
-              {generating && (
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                   <div style={{ width: '32px', height: '32px', background: 'var(--youtube-red)', borderRadius: '4px', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                      <Sparkles size={16} color="white" />
-                   </div>
-                   <div className="premium-card" style={{ padding: '3rem', borderRadius: '12px', width: '100%', maxWidth: '640px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                     <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto 1rem', color: 'var(--youtube-red)' }} />
-                     Generatig your visual masterpiece...
-                   </div>
-                </div>
-              )}
-              
+                {generating && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
+                     <div style={{ width: '36px', height: '36px', background: 'var(--youtube-red)', borderRadius: '8px', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
+                        <Sparkles size={18} className="animate-spin" color="white" />
+                     </div>
+                     <div className="premium-card" style={{ width: '100%', maxWidth: '720px', overflow: 'hidden' }}>
+                        <div className="shimmer" style={{ width: '100%', aspectRatio: '16/9' }}></div>
+                        <div style={{ padding: '1.5rem', textAlign: 'center', background: '#0F0F0F' }}>
+                           <p style={{ color: '#555', fontWeight: '600', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                              Developing masterpiece...
+                           </p>
+                        </div>
+                     </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <div ref={messagesEndRef} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Input Overlay */}
-      <div style={{ 
-        position: 'fixed', 
-        bottom: 0, 
-        left: user ? sidebarWidth : 0, 
-        right: 0, 
-        padding: '2.5rem 1rem', 
-        background: 'linear-gradient(transparent, var(--youtube-black) 25%)',
-        zIndex: 10,
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-      }} className="input-container-float">
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          {error && (
-            <div style={{ marginBottom: '1rem', background: 'rgba(255,0,0,0.1)', color: 'var(--youtube-red)', padding: '0.5rem 1rem', borderRadius: '4px', fontSize: '0.875rem' }}>
-              {error}
-            </div>
-          )}
+      <div style={{ position: 'fixed', bottom: 0, left: user && !isSidebarCollapsed ? '260px' : 0, right: 0, padding: '2.5rem 1.5rem', background: 'linear-gradient(transparent, var(--youtube-black) 40%)', zIndex: 10, transition: 'all 0.4s ease-in-out' }}>
+        <div style={{ maxWidth: '850px', margin: '0 auto' }}>
+          {error && <div style={{ marginBottom: '1rem', background: 'rgba(255,0,0,0.1)', color: '#FF4C4C', padding: '0.6rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Info size={14} /> {error}
+          </div>}
           
           <div className="chat-input-wrapper">
-            <textarea 
-               className="chat-input"
-               placeholder="Describe your YouTube thumbnail vision..."
-               rows={1}
-               value={prompt}
-               onChange={(e) => setPrompt(e.target.value)}
-               onKeyDown={(e) => {
-                 if (e.key === 'Enter' && !e.shiftKey) {
-                   e.preventDefault();
-                   handleSend();
-                 }
-               }}
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0.5rem' }}>
-               <button style={{ color: 'var(--text-muted)' }}><ImageIcon size={20} /></button>
-               <button 
-                  onClick={handleSend}
-                  disabled={!prompt.trim() || generating}
-                  style={{ 
-                    background: prompt.trim() ? 'var(--youtube-red)' : '#2A2A2A', 
-                    color: 'white', 
-                    width: '36px', 
-                    height: '36px', 
-                    borderRadius: '8px',
-                    display: 'grid',
-                    placeItems: 'center'
-                  }}
-               >
-                 <Send size={18} />
+            <textarea className="chat-input" placeholder="What's the vision for your next viral thumbnail?" rows={1} value={prompt} onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; setPrompt(e.target.value); }} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px 0' }}>
+               <div style={{ display: 'flex', gap: '1.5rem', color: '#444' }}>
+                  <ImageIcon size={19} />
+                  <Menu size={19} />
+               </div>
+               <button onClick={handleSend} disabled={!prompt.trim() || generating} style={{ background: prompt.trim() ? 'var(--youtube-red)' : '#262626', color: 'white', width: '38px', height: '38px', borderRadius: '10px', display: 'grid', placeItems: 'center', transition: 'all 0.2s' }}>
+                 <Send size={18} fill={prompt.trim() ? "currentColor" : "none"} strokeWidth={2} />
                </button>
             </div>
           </div>
-          <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.8rem' }}>
-            {user ? `Logged in to AI Studio` : 'Sign in to generate high-quality thumbnails'}
+          <p style={{ textAlign: 'center', fontSize: '0.65rem', color: '#333', marginTop: '1.25rem', fontWeight: '700', letterSpacing: '1px' }}>
+            {user ? `CREATIVE MODE • FLUX.1 ENGINE` : 'SIGN IN TO UNLOCK PRO GENERATION'}
           </p>
         </div>
       </div>
@@ -339,18 +318,13 @@ const Home = () => {
       <style>{`
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        
-        .sidebar-toggle:hover { background: #333 !important; }
-
-        @media (max-width: 768px) {
-          .sidebar-wrapper { position: fixed; height: 100vh; left: 0; top: 0; z-index: 1000; }
-          .input-container-float { left: 0 !important; }
-          .sidebar-toggle { display: none !important; }
-        }
+        .hover-white:hover { border-color: white !important; background: rgba(255,255,255,0.05) !important; }
+        .cursor-pointer { cursor: pointer; }
+        .hover\\:text-white:hover { color: white !important; }
+        .transition { transition: all 0.2s; }
       `}</style>
     </div>
   );
 };
-
 
 export default Home;
