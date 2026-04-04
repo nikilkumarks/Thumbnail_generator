@@ -3,7 +3,6 @@
 This repository is set up for a single Render deployment:
 
 - Frontend and backend run from one Render Web Service.
-- GitHub Actions only runs checks.
 
 ## Single Link Setup
 
@@ -18,13 +17,6 @@ This repository is set up for a single Render deployment:
 - API routes available under `/api` on the same domain.
 - React routes handled by the backend server.
 - A health endpoint at `/api/health`.
-
-## GitHub Actions
-
-The workflow in `.github/workflows/ci.yml` now only runs checks:
-
-- Frontend lint and build.
-- Backend JavaScript syntax validation.
 
 ## Manual Steps Required
 
