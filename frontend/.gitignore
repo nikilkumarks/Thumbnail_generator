@@ -22,3 +22,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local environment artifacts
+.wnv
+.wnv/
+*.wnv
+
+# Environment files
+.env
+.env.*
+!.env.example
