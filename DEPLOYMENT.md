@@ -3,6 +3,7 @@
 This repository is set up for a single Render deployment:
 
 - Frontend and backend run from one Render Web Service.
+- GitHub Actions runs frontend and backend checks, then triggers Render deploy.
 
 ## Single Link Setup
 
@@ -22,4 +23,5 @@ This repository is set up for a single Render deployment:
 
 1. Deploy the repo to Render using the Blueprint or a web service.
 2. Make sure `backend/.env` has the correct production values before deploy.
-3. Use the single Render URL for the app.
+3. Add a GitHub repository secret named `RENDER_DEPLOY_HOOK_URL`.
+4. Use the single Render URL for the app.
