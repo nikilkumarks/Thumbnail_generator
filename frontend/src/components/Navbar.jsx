@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { User as UserIcon, LogOut, Sparkles, Layout, Menu, X, ArrowRight } from 'lucide-react';
@@ -7,20 +7,28 @@ import { motion, AnimatePresence } from 'framer-motion';
 const Navbar = () => {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navRef = useRef(null);
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
-  // Disable body scroll when mobile menu is active
   useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (navRef.current && !navRef.current.contains(event.target)) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
     if (isMobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
+      document.addEventListener('mousedown', handleClickOutside);
     }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, [isMobileMenuOpen]);
 
   return (
-    <nav style={{ 
+    <nav ref={navRef} style={{ 
       height: '72px',
       background: 'rgba(10, 10, 10, 0.95)',
       backdropFilter: 'blur(16px)',
@@ -67,15 +75,22 @@ const Navbar = () => {
       {/* Desktop Actions */}
       <div className="nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
         {user ? (
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '12px',
-            padding: '6px 14px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '24px',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
+          <div 
+            onClick={toggleMobileMenu}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px',
+              padding: '6px 14px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '24px',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               {user.picture ? (
                 <img src={user.picture} alt="Profile" style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid var(--youtube-red)' }} />
@@ -86,10 +101,6 @@ const Navbar = () => {
               )}
               <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'white' }}>{user.name?.split(' ')[0] || 'Creator'}</span>
             </div>
-            <div style={{ width: '1px', height: '16px', background: 'rgba(255, 255, 255, 0.1)' }}></div>
-            <button onClick={logout} style={{ background: 'transparent', color: '#888', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }} className="logout-btn">
-              <LogOut size={16} />
-            </button>
           </div>
         ) : (
           <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
@@ -105,78 +116,88 @@ const Navbar = () => {
       <button 
         onClick={toggleMobileMenu}
         style={{ 
-          background: 'rgba(255, 255, 255, 0.05)', 
-          border: '1px solid rgba(255, 255, 255, 0.1)', 
+          background: (user && !isMobileMenuOpen) ? 'transparent' : 'rgba(255, 255, 255, 0.05)', 
+          border: (user && !isMobileMenuOpen) ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', 
           color: 'white', 
-          width: '44px', 
-          height: '44px', 
-          borderRadius: '12px', 
+          width: '40px', 
+          height: '40px', 
+          borderRadius: (user && !isMobileMenuOpen) ? '50%' : '12px', 
           display: 'none', 
           placeItems: 'center',
           cursor: 'pointer',
-          zIndex: 3600
+          zIndex: 3600,
+          padding: 0,
+          overflow: 'hidden'
         }}
         className="nav-mobile-trigger"
       >
-        {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        {isMobileMenuOpen ? (
+          <X size={20} />
+        ) : user ? (
+          user.picture ? (
+            <img src={user.picture} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover', border: '1px solid var(--youtube-red)', borderRadius: '50%' }} />
+          ) : (
+            <div style={{ width: '100%', height: '100%', background: '#212121', display: 'grid', placeItems: 'center', border: '1px solid var(--youtube-red)', borderRadius: '50%' }}>
+              <UserIcon size={18} color="#888" />
+            </div>
+          )
+        ) : (
+          <Menu size={20} />
+        )}
       </button>
 
-      {/* Mobile Slide Drawer */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, x: '100%' }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
             style={{
-              position: 'fixed',
-              top: 0,
-              right: 0,
-              width: '100%',
-              maxWidth: '320px',
-              height: '100dvh',
-              background: '#0A0A0A',
-              borderLeft: '1px solid #1A1A1A',
+              position: 'absolute',
+              top: '80px',
+              right: '1.25rem',
+              width: 'max-content',
+              minWidth: '220px',
+              background: '#111',
+              border: '1px solid #222',
+              borderRadius: '16px',
               zIndex: 3550,
               display: 'flex',
               flexDirection: 'column',
-              padding: '6rem 1.5rem 2rem',
-              boxShadow: '-20px 0 60px rgba(0,0,0,0.8)'
+              padding: '1rem',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+              transformOrigin: 'top right'
             }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {user ? (
                 <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem', background: '#0F0F0F', borderRadius: '20px', border: '1px solid #1A1A1A' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: '#0a0a0a', borderRadius: '12px', border: '1px solid #1A1A1A' }}>
                     {user.picture ? (
-                      <img src={user.picture} alt="Avatar" style={{ width: '44px', height: '44px', borderRadius: '50%', border: '2px solid var(--youtube-red)' }} />
+                      <img src={user.picture} alt="Avatar" style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid var(--youtube-red)' }} />
                     ) : (
-                      <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#212121', display: 'grid', placeItems: 'center' }}><UserIcon size={24} /></div>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#212121', display: 'grid', placeItems: 'center' }}><UserIcon size={18} /></div>
                     )}
                     <div>
-                      <h3 style={{ fontSize: '1rem', fontWeight: '900' }}>{user.name}</h3>
-                      <p style={{ fontSize: '0.65rem', color: '#888', fontWeight: '700' }}>CREATOR ACTIVE</p>
+                      <h3 style={{ fontSize: '0.85rem', fontWeight: '800' }}>{user.name}</h3>
+                      <p style={{ fontSize: '0.6rem', color: '#888', fontWeight: '700' }}>CREATOR</p>
                     </div>
                   </div>
-                  <button onClick={() => { logout(); toggleMobileMenu(); }} style={{ padding: '1.25rem', borderRadius: '16px', background: '#111', border: '1px solid #222', color: 'white', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer' }}>
-                    <LogOut size={20} /> SIGN OUT
+                  <button onClick={() => { logout(); toggleMobileMenu(); }} style={{ padding: '0.75rem', borderRadius: '12px', background: '#1a1a1a', border: '1px solid #333', color: 'white', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.8rem', justifyContent: 'center' }}>
+                    <LogOut size={16} /> SIGN OUT
                   </button>
                 </>
               ) : (
                 <>
-                  <Link to="/login" onClick={toggleMobileMenu} style={{ padding: '1.25rem', borderRadius: '16px', background: '#111', border: '1px solid #222', color: 'white', textDecoration: 'none', fontWeight: '800', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    SIGN IN <ArrowRight size={20} />
+                  <Link to="/login" onClick={toggleMobileMenu} style={{ padding: '0.75rem', borderRadius: '12px', background: '#1a1a1a', border: '1px solid #333', color: 'white', textDecoration: 'none', fontWeight: '800', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                    SIGN IN <ArrowRight size={16} />
                   </Link>
-                  <Link to="/register" onClick={toggleMobileMenu} style={{ padding: '1.25rem', borderRadius: '16px', background: 'var(--youtube-red)', border: 'none', color: 'white', textDecoration: 'none', fontWeight: '900', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    GET STARTED <Sparkles size={20} fill="currentColor" />
+                  <Link to="/register" onClick={toggleMobileMenu} style={{ padding: '0.75rem', borderRadius: '12px', background: 'var(--youtube-red)', border: 'none', color: 'white', textDecoration: 'none', fontWeight: '900', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                    GET STARTED <Sparkles size={16} fill="currentColor" />
                   </Link>
                 </>
               )}
-            </div>
-
-            <div style={{ marginTop: 'auto', textAlign: 'center', opacity: 0.15 }}>
-              <p style={{ fontSize: '0.6rem', fontWeight: '800', color: 'white', letterSpacing: '2px' }}>PROMPTVISION STUDIOS v2.4</p>
             </div>
           </motion.div>
         )}

@@ -6,7 +6,7 @@ import Navbar from '../components/Navbar';
 import LoginModal from '../components/LoginModal';
 import Sidebar from '../components/Sidebar';
 import Footer from '../components/Footer';
-import { Send, Loader2, Download, Image as ImageIcon, Sparkles, Wand2, Video, Gamepad2, Monitor, Camera, Tv, ChevronLeft, Menu, Stars, Info, X } from 'lucide-react';
+import { Send, Loader2, Download, Image as ImageIcon, Sparkles, Wand2, Video, Gamepad2, Monitor, Camera, Tv, Menu, Stars, Info, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Home = () => {
@@ -223,7 +223,7 @@ const Home = () => {
               className="sidebar-toggle"
               style={{
                 position: 'fixed',
-                left: isMobile ? '0.75rem' : '1.25rem',
+                left: isMobile ? '0.75rem' : (isSidebarCollapsed ? '1.25rem' : 'calc(260px + 1.25rem)'),
                 top: '5.5rem',
                 zIndex: 50,
                 background: 'rgba(255, 255, 255, 0.05)',
@@ -236,13 +236,13 @@ const Home = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
+                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                 opacity: isMobile && !isSidebarCollapsed ? 0 : 1,
                 pointerEvents: isMobile && !isSidebarCollapsed ? 'none' : 'auto',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
               }}
             >
-              {isSidebarCollapsed ? <Menu size={18} /> : <ChevronLeft size={18} />}
+              {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
             </button>
           )}
 

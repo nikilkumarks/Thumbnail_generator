@@ -9,6 +9,7 @@ import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Security from './pages/Security';
 import ProtectedRoute from './components/ProtectedRoute';
+import ConsentBanner from './components/ConsentBanner';
 
 function App() {
   // Load Client ID from environment variables
@@ -33,6 +34,7 @@ function App() {
               <Route path="/terms" element={<Terms />} />
               <Route path="/security" element={<Security />} />
             </Routes>
+            <ConsentBanner />
           </div>
         </AuthProvider>
       </GoogleOAuthProvider>
