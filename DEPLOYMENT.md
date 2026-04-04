@@ -9,15 +9,8 @@ This repository is set up for a single Render deployment:
 
 1. Create one Render Web Service from this repository or import the `render.yaml` blueprint.
 2. Render will build the frontend and backend together using the `render.yaml` file.
-3. The backend serves the built frontend from the same URL.
-4. Add these environment variables in Render:
-   - `MONGO_URI`
-   - `JWT_SECRET`
-   - `GOOGLE_CLIENT_ID`
-   - `GEMINI_API_KEY`
-   - `COHERE_API_KEY`
-   - `HUGGINGFACE_TOKEN`
-   - `IMAGE_GEN_API_KEY`
+3. Deployment uses the real `backend/.env` file from this repository.
+4. The backend serves the built frontend from the same URL.
 
 ## What You Get
 
@@ -36,5 +29,5 @@ The workflow in `.github/workflows/ci.yml` now only runs checks:
 ## Manual Steps Required
 
 1. Deploy the repo to Render using the Blueprint or a web service.
-2. Add the backend environment variables in Render.
+2. Make sure `backend/.env` has the correct production values before deploy.
 3. Use the single Render URL for the app.
