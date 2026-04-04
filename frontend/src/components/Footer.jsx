@@ -5,26 +5,26 @@ const Footer = () => {
   return (
     <footer style={{
       width: '100%',
-      padding: '0.4rem 1.5rem',
-      background: 'rgba(10, 10, 10, 0.95)',
-      borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+      padding: '0.75rem 0',
+      background: 'transparent',
       zIndex: 10,
       position: 'relative'
     }} className="footer-container">
       <div style={{
-        maxWidth: '1280px',
+        maxWidth: '100%',
         margin: '0 auto',
         display: 'flex',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         alignItems: 'center',
-        gap: '1rem'
+        flexWrap: 'wrap',
+        gap: '1.5rem'
       }} className="footer-content">
         {/* Copyright Section */}
         <div style={{ 
           fontSize: '0.65rem', 
-          color: '#444', 
-          fontWeight: '800', 
-          letterSpacing: '1px' 
+          color: '#555', 
+          fontWeight: '700', 
+          letterSpacing: '0.5px' 
         }} className="copyright-text">
           &copy; 2026 PROMPTVISION STUDIOS. ALL RIGHTS RESERVED.
         </div>
@@ -35,9 +35,11 @@ const Footer = () => {
           gap: '1.25rem',
           alignItems: 'center'
         }} className="footer-links">
-          <Link to="/privacy" style={{ fontSize: '0.65rem', color: '#666', textDecoration: 'none', fontWeight: '800', letterSpacing: '1px' }} className="footer-hover-red">PRIVACY</Link>
-          <Link to="/terms" style={{ fontSize: '0.65rem', color: '#666', textDecoration: 'none', fontWeight: '800', letterSpacing: '1px' }} className="footer-hover-red">TERMS</Link>
-          <Link to="/security" style={{ fontSize: '0.65rem', color: '#666', textDecoration: 'none', fontWeight: '800', letterSpacing: '1px' }} className="footer-hover-red">SECURITY</Link>
+          <Link to="/privacy" style={{ fontSize: '0.65rem', color: '#666', textDecoration: 'none', fontWeight: '700', letterSpacing: '0.5px' }} className="footer-hover-red">PRIVACY</Link>
+          <div style={{ width: '3px', height: '3px', background: '#333', borderRadius: '50%' }}></div>
+          <Link to="/terms" style={{ fontSize: '0.65rem', color: '#666', textDecoration: 'none', fontWeight: '700', letterSpacing: '0.5px' }} className="footer-hover-red">TERMS</Link>
+          <div style={{ width: '3px', height: '3px', background: '#333', borderRadius: '50%' }}></div>
+          <Link to="/security" style={{ fontSize: '0.65rem', color: '#666', textDecoration: 'none', fontWeight: '700', letterSpacing: '0.5px' }} className="footer-hover-red">SECURITY</Link>
         </div>
       </div>
 

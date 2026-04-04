@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const axios = require('axios');
 const { OAuth2Client } = require('google-auth-library');
 
 const generateToken = (id) => {
@@ -91,13 +92,29 @@ const googleLogin = async (req, res) => {
   const client = new OAuth2Client(GOOGLE_CLIENT_ID);
   
   try {
-    console.log('Verifying Google Token with Client ID:', GOOGLE_CLIENT_ID);
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: GOOGLE_CLIENT_ID,
-    });
-    
-    const { name, email, sub, picture } = ticket.getPayload();
+    let name, email, sub, picture;
+
+    if (req.body.isAccessToken) {
+      const { data } = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      name = data.name;
+      email = data.email;
+      sub = data.sub;
+      picture = data.picture;
+    } else {
+      console.log('Verifying Google Token with Client ID:', GOOGLE_CLIENT_ID);
+      const ticket = await client.verifyIdToken({
+        idToken: token,
+        audience: GOOGLE_CLIENT_ID,
+      });
+      
+      const payload = ticket.getPayload();
+      name = payload.name;
+      email = payload.email;
+      sub = payload.sub;
+      picture = payload.picture;
+    }
     
     let user = await User.findOne({ email });
     

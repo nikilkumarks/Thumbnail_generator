@@ -6,7 +6,7 @@ import Navbar from '../components/Navbar';
 import LoginModal from '../components/LoginModal';
 import Sidebar from '../components/Sidebar';
 import Footer from '../components/Footer';
-import { Send, Loader2, Download, Image as ImageIcon, Sparkles, Wand2, Video, Gamepad2, Monitor, Camera, Tv, ChevronLeft, Menu, Stars, Info } from 'lucide-react';
+import { Send, Loader2, Download, Image as ImageIcon, Sparkles, Wand2, Video, Gamepad2, Monitor, Camera, Tv, ChevronLeft, Menu, Stars, Info, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Home = () => {
@@ -22,6 +22,23 @@ const Home = () => {
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 992);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 992;
+      setIsMobile(mobile);
+      if (mobile) {
+        setIsSidebarCollapsed(true);
+      } else {
+        setIsSidebarCollapsed(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial check
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -32,7 +49,7 @@ const Home = () => {
     } else {
       setMessages([]);
       setRawHistory([]);
-      setIsSidebarCollapsed(false);
+      setIsSidebarCollapsed(true);
     }
   }, [user]);
 
@@ -57,6 +74,7 @@ const Home = () => {
       threadMessages.push({ type: 'image', content: gen.imageUrl, prompt: gen.prompt, id: gen._id });
     });
     setMessages(threadMessages);
+    if (isMobile) setIsSidebarCollapsed(true);
   };
 
   const handleDeleteWork = async (id) => {
@@ -77,6 +95,7 @@ const Home = () => {
     setMessages([]);
     setCurrentId(null);
     setPrompt('');
+    if (isMobile) setIsSidebarCollapsed(true);
   };
 
   const handleSend = async (e) => {
@@ -137,7 +156,7 @@ const Home = () => {
 
       <LoginModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', paddingTop: '72px' }}>
         {user && (
           <div
             className="sidebar-wrapper"
@@ -147,18 +166,51 @@ const Home = () => {
               overflow: 'hidden',
               flexShrink: 0,
               backgroundColor: '#0A0A0A',
-              borderRight: '1px solid rgba(255,255,255,0.05)'
+              borderRight: '1px solid rgba(255,255,255,0.05)',
+              position: isMobile ? 'fixed' : 'relative',
+              top: isMobile ? '72px' : 0,
+              bottom: isMobile ? 0 : 0,
+              left: 0,
+              zIndex: 1000,
+              height: isMobile ? 'calc(100dvh - 72px)' : 'auto'
             }}
           >
-            <Sidebar history={rawHistory} onNewChat={handleNewChat} onSelectWork={handleSelectWork} onDeleteWork={handleDeleteWork} currentId={currentId} />
+            <div style={{ width: '260px', height: '100%' }}>
+               <Sidebar 
+                 history={rawHistory} 
+                 onNewChat={handleNewChat} 
+                 onSelectWork={handleSelectWork} 
+                 onDeleteWork={handleDeleteWork} 
+                 currentId={currentId} 
+                 isMobile={isMobile}
+                 onClose={() => setIsSidebarCollapsed(true)}
+               />
+            </div>
           </div>
+        )}
+
+        {/* Overlay for mobile when sidebar is open */}
+        {isMobile && !isSidebarCollapsed && (
+          <div 
+            onClick={() => setIsSidebarCollapsed(true)}
+            style={{
+              position: 'fixed',
+              top: '72px',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 900
+            }}
+          />
         )}
 
         {/* 🎨 PromptVision Immersive Workspace */}
         <div style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '1.5rem',
+          padding: isMobile ? '1rem' : '1.5rem',
           position: 'relative',
           background: 'linear-gradient(rgba(10, 10, 10, 0.92), rgba(10, 10, 10, 0.92)), url("https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80")',
           backgroundSize: 'cover',
@@ -166,13 +218,13 @@ const Home = () => {
           backgroundAttachment: 'fixed'
         }} className="main-content-scroll">
           {user && (
-            <button
+             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               className="sidebar-toggle"
               style={{
-                position: 'absolute',
-                left: '1.25rem',
-                top: '1.25rem',
+                position: 'fixed',
+                left: isMobile ? '0.75rem' : '1.25rem',
+                top: '5.5rem',
                 zIndex: 50,
                 background: 'rgba(255, 255, 255, 0.05)',
                 backdropFilter: 'blur(8px)',
@@ -184,7 +236,10 @@ const Home = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                transition: 'all 0.2s'
+                transition: 'all 0.2s',
+                opacity: isMobile && !isSidebarCollapsed ? 0 : 1,
+                pointerEvents: isMobile && !isSidebarCollapsed ? 'none' : 'auto',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
               }}
             >
               {isSidebarCollapsed ? <Menu size={18} /> : <ChevronLeft size={18} />}
@@ -193,17 +248,28 @@ const Home = () => {
 
           <div style={{ maxWidth: '850px', margin: '0 auto', width: '100%' }}>
             {messages.length === 0 && !generating && (
-              <div style={{ marginTop: '8vh', padding: '0 1rem' }} className="fade-in">
-                <div style={{ marginBottom: '4rem' }}>
-                  <h1 style={{ fontSize: '3.5rem', fontWeight: '900', marginBottom: '1rem', letterSpacing: '-1.5px', color: 'white' }}>PromptVision Studio</h1>
-                  <p style={{ color: '#555', fontSize: '1.2rem', fontWeight: '600', letterSpacing: '0.5px' }}>CHOOSE YOUR CREATIVE ENGINE TO START</p>
+              <div style={{ marginTop: isMobile ? '4vh' : '8vh', padding: '0 0.5rem' }} className="fade-in">
+                <div style={{ marginBottom: isMobile ? '2.5rem' : '4rem' }}>
+                  <h1 style={{ 
+                    fontSize: isMobile ? '2rem' : '3.5rem', 
+                    fontWeight: '900', 
+                    marginBottom: '1rem', 
+                    letterSpacing: '-1px', 
+                    color: 'white',
+                    lineHeight: '1.1'
+                  }}>
+                    PromptVision Studio
+                  </h1>
+                  <p style={{ color: '#555', fontSize: isMobile ? '0.85rem' : '1.2rem', fontWeight: '600', letterSpacing: '0.5px' }}>
+                    CHOOSE YOUR CREATIVE ENGINE TO START
+                  </p>
                 </div>
 
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                  gap: '1.5rem',
-                  marginTop: '2rem'
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gap: '1rem',
+                  marginTop: '1rem'
                 }}>
                   {[
                     { title: 'Gamer Pack', desc: 'High-contrast, action-packed gaming visual previews.', icon: <Gamepad2 size={24} />, prompt: 'High-intensity, cinematic gaming action scene with glowing effects and bold highlights.' },
@@ -218,21 +284,21 @@ const Home = () => {
                         display: 'flex',
                         flexDirection: 'column',
                         textAlign: 'left',
-                        padding: '1.5rem',
+                        padding: '1.25rem',
                         background: '#0F0F0F',
                         border: '1px solid #222',
                         borderRadius: '12px',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease',
-                        gap: '1rem'
+                        gap: '0.75rem'
                       }}
                       onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#444'; e.currentTarget.style.background = '#151515'; }}
                       onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#222'; e.currentTarget.style.background = '#0F0F0F'; }}
                     >
                       <div style={{ color: 'var(--youtube-red)' }}>{pack.icon}</div>
                       <div>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '0.25rem', color: 'white' }}>{pack.title}</h3>
-                        <p style={{ fontSize: '0.85rem', color: '#555', fontWeight: '500', lineHeight: '1.5' }}>{pack.desc}</p>
+                        <h3 style={{ fontSize: '1rem', fontWeight: '800', marginBottom: '0.25rem', color: 'white' }}>{pack.title}</h3>
+                        <p style={{ fontSize: '0.8rem', color: '#555', fontWeight: '500', lineHeight: '1.5' }}>{pack.desc}</p>
                       </div>
                     </button>
                   ))}
@@ -240,30 +306,54 @@ const Home = () => {
               </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem', paddingBottom: '12rem', marginTop: '2rem' }}>
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: isMobile ? '1.5rem' : '2.5rem', 
+              paddingBottom: isMobile ? '14rem' : '12rem', 
+              marginTop: '1rem' 
+            }}>
               <AnimatePresence>
                 {messages.map((msg, index) => (
                   <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
                     key={index}
                   >
                     {msg.type === 'prompt' ? (
                       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
-                        <div style={{ background: '#1F1F1F', border: '1px solid #333', padding: '1rem 1.4rem', borderRadius: '20px 20px 4px 20px', maxWidth: '85%', color: '#DDD' }}>
-                          <p style={{ fontSize: '1rem', lineHeight: '1.5' }}>{msg.content}</p>
+                        <div style={{ 
+                          background: '#1F1F1F', 
+                          border: '1px solid #333', 
+                          padding: isMobile ? '0.75rem 1.1rem' : '1rem 1.4rem', 
+                          borderRadius: '20px 20px 4px 20px', 
+                          maxWidth: isMobile ? '92%' : '85%', 
+                          color: '#DDD' 
+                        }}>
+                          <p style={{ fontSize: isMobile ? '0.9rem' : '1rem', lineHeight: '1.5' }}>{msg.content}</p>
                         </div>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
-                        <div style={{ width: '36px', height: '36px', background: 'var(--youtube-red)', borderRadius: '8px', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
-                          <Sparkles size={18} color="white" fill="currentColor" strokeWidth={0} />
-                        </div>
+                      <div style={{ display: 'flex', gap: isMobile ? '0.75rem' : '1.25rem', alignItems: 'flex-start' }}>
+                        {!isMobile && (
+                          <div style={{ width: '36px', height: '36px', background: 'var(--youtube-red)', borderRadius: '8px', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
+                            <Sparkles size={18} color="white" fill="currentColor" strokeWidth={0} />
+                          </div>
+                        )}
                         <div className="premium-card" style={{ overflow: 'hidden', width: '100%', maxWidth: '720px' }}>
                           <img src={msg.content} alt="Generated" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }} />
-                          <div style={{ padding: '1rem 1.25rem', background: '#0F0F0F', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #222' }}>
-                            <div style={{ display: 'flex', gap: '0.75rem' }}>
-                              <button className="btn-primary" style={{ height: '38px', padding: '0 1.25rem', fontSize: '0.8125rem', borderRadius: '6px' }} onClick={() => {
+                          <div style={{ 
+                            padding: isMobile ? '0.75rem' : '1rem 1.25rem', 
+                            background: '#0F0F0F', 
+                            display: 'flex', 
+                            flexDirection: isMobile ? 'column' : 'row',
+                            gap: isMobile ? '1rem' : '0.75rem',
+                            justifyContent: 'space-between', 
+                            alignItems: isMobile ? 'flex-start' : 'center', 
+                            borderTop: '1px solid #222' 
+                          }}>
+                            <div style={{ display: 'flex', gap: '0.75rem', width: isMobile ? '100%' : 'auto' }}>
+                              <button className="btn-primary" style={{ flex: isMobile ? 1 : 'none', height: '38px', padding: '0 1.25rem', fontSize: '0.8125rem', borderRadius: '6px' }} onClick={() => {
                                 const link = document.createElement('a');
                                 link.href = msg.content;
                                 link.download = `thumb-${Date.now()}.png`;
@@ -271,13 +361,13 @@ const Home = () => {
                                 link.click();
                                 document.body.removeChild(link);
                               }}>
-                                <Download size={14} /> DOWNLOAD HD
+                                <Download size={14} /> {isMobile ? 'DOWNLOAD' : 'DOWNLOAD HD'}
                               </button>
-                              <button onClick={() => setPrompt(`${msg.prompt}`)} style={{ background: 'transparent', border: '1px solid #333', borderRadius: '6px', padding: '0 1.25rem', fontSize: '0.8125rem', height: '38px', color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Wand2 size={14} /> RE-PROMPT
+                              <button onClick={() => setPrompt(`${msg.prompt}`)} style={{ flex: isMobile ? 1 : 'none', background: 'transparent', border: '1px solid #333', borderRadius: '6px', padding: '0 1.25rem', fontSize: '0.8125rem', height: '38px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                <Wand2 size={14} /> {isMobile ? 'RE-PROMPT' : 'RE-PROMPT'}
                               </button>
                             </div>
-                            <div style={{ color: '#444', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '1px' }}>1280 × 720 • PNG</div>
+                            <div style={{ color: '#444', fontSize: '0.65rem', fontWeight: '700', letterSpacing: '1px' }}>1280 × 720 • PNG</div>
                           </div>
                         </div>
                       </div>
@@ -286,13 +376,15 @@ const Home = () => {
                 ))}
 
                 {generating && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
-                    <div style={{ width: '36px', height: '36px', background: 'var(--youtube-red)', borderRadius: '8px', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
-                      <Sparkles size={18} className="animate-spin" color="white" />
-                    </div>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', gap: isMobile ? '0.75rem' : '1.25rem', alignItems: 'flex-start' }}>
+                    {!isMobile && (
+                      <div style={{ width: '36px', height: '36px', background: 'var(--youtube-red)', borderRadius: '8px', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
+                        <Sparkles size={18} className="animate-spin" color="white" />
+                      </div>
+                    )}
                     <div className="premium-card" style={{ width: '100%', maxWidth: '720px', overflow: 'hidden' }}>
                       <div className="shimmer" style={{ width: '100%', aspectRatio: '16/9' }}></div>
-                      <div style={{ padding: '1.5rem', textAlign: 'center', background: '#0F0F0F' }}>
+                      <div style={{ padding: isMobile ? '1rem' : '1.5rem', textAlign: 'center', background: '#0F0F0F' }}>
                         <p style={{ color: '#555', fontWeight: '600', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
                           Developing masterpiece...
                         </p>
@@ -307,7 +399,16 @@ const Home = () => {
         </div>
       </div>
 
-      <div style={{ position: 'fixed', bottom: 0, left: user && !isSidebarCollapsed ? '260px' : 0, right: 0, padding: '2.5rem 1.5rem', background: 'linear-gradient(transparent, var(--youtube-black) 40%)', zIndex: 10, transition: 'all 0.4s ease-in-out' }}>
+      <div style={{ 
+        position: 'fixed', 
+        bottom: 0, 
+        left: (user && !isSidebarCollapsed && !isMobile) ? '260px' : 0, 
+        right: 0, 
+        padding: isMobile ? '1.5rem 1rem' : '2.5rem 1.5rem', 
+        background: 'linear-gradient(transparent, var(--youtube-black) 40%)', 
+        zIndex: 10, 
+        transition: 'all 0.4s ease-in-out' 
+      }}>
         <div style={{ maxWidth: '850px', margin: '0 auto' }}>
           {error && <div style={{ marginBottom: '1rem', background: 'rgba(255,0,0,0.1)', color: '#FF4C4C', padding: '0.6rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Info size={14} /> {error}
@@ -317,7 +418,7 @@ const Home = () => {
             background: '#1A1A1A',
             borderRadius: '12px',
             border: '1px solid #222',
-            padding: '12px 14px',
+            padding: isMobile ? '10px 12px' : '12px 14px',
             transition: 'all 0.2s ease',
             display: 'flex',
             flexDirection: 'column',
@@ -343,17 +444,17 @@ const Home = () => {
                 background: 'transparent',
                 border: 'none',
                 color: 'white',
-                fontSize: '0.95rem',
+                fontSize: isMobile ? '0.9rem' : '0.95rem',
                 fontWeight: '500',
                 resize: 'none',
                 outline: 'none',
                 padding: '4px 0',
-                maxHeight: '200px',
+                maxHeight: '150px',
                 lineHeight: '1.5'
               }}
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', gap: isMobile ? '0.25rem' : '0.75rem' }}>
                 <button
                   title="Upload Asset"
                   style={{
@@ -414,7 +515,7 @@ const Home = () => {
               </button>
             </div>
           </div>
-          <div style={{ marginTop: '0.5rem' }}>
+          <div style={{ marginTop: isMobile ? '0.25rem' : '0.5rem' }}>
              <Footer />
           </div>
         </div>
@@ -426,6 +527,11 @@ const Home = () => {
         #studio-input:focus-within { border-color: #444 !important; background: #1F1F1F !important; }
         .send-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.1); }
         .chat-input::placeholder { color: #555; }
+        .main-content-scroll::-webkit-scrollbar { width: 4px; }
+        
+        @media (max-width: 992px) {
+          .shimmer { aspect-ratio: 16/9; }
+        }
       `}</style>
     </motion.div>
   );

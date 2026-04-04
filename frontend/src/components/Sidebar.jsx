@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { History, Plus, Image as ImageIcon, Trash2, Search, X, Clock, MessageSquare, ChevronRight } from 'lucide-react';
 
-const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentId }) => {
+const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentId, onClose, isMobile }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredHistory = history.filter(item => 
@@ -21,8 +21,30 @@ const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentI
       zIndex: 100,
       position: 'relative'
     }}>
+      {/* Mobile Top Controls */}
+      {isMobile && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.75rem 0.75rem 0' }}>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '8px',
+              padding: '6px',
+              color: 'white',
+              display: 'grid',
+              placeItems: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
       {/* Premium Search Container */}
-      <div style={{ padding: '1.25rem 0.75rem 0.75rem' }}>
+      <div style={{ padding: isMobile ? '0.75rem' : '1.25rem 0.75rem 0.75rem' }}>
         <div style={{ 
           position: 'relative', 
           background: 'rgba(255, 255, 255, 0.03)', 

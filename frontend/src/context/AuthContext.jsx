@@ -54,8 +54,10 @@ export const AuthProvider = ({ children }) => {
 
   const handleGoogleSuccess = async (response) => {
     try {
-      // Send Google credential token to backend
-      const { data } = await api.post('/auth/google', { token: response.credential });
+      const token = response.access_token || response.credential;
+      const isAccessToken = !!response.access_token;
+      
+      const { data } = await api.post('/auth/google', { token, isAccessToken });
       handleAuthSuccess(data);
       navigate('/');
     } catch (err) {

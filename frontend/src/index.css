@@ -133,5 +133,50 @@ body {
 
 @keyframes shimmer {
   0% { background-position: -1000px 0; }
-  100% { background-position: 1000px 0; }
+}
+
+/* 🔒 Modal Styles */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: #0D0D0D;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  width: 100%;
+  max-width: 420px;
+  padding: 2.5rem 2rem;
+  position: relative;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: #1A1A1A;
+  border: 1px solid #333;
+  border-radius: 12px;
+  color: white;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.input-field:focus {
+  border-color: var(--youtube-red);
+  background: #222;
+}
+
+.input-field::placeholder {
+  color: #666;
 }
