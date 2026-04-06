@@ -1,5 +1,6 @@
 services:
   - type: web
+    env: node
     name: youtube-thumbnail-ai-backend
     plan: free
     buildCommand: cd frontend && npm ci && npm run build && cd ../backend && npm ci
