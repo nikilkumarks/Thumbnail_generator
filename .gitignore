@@ -1,0 +1,9 @@
+# Environment files (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Common local artifacts
+node_modules/
+.DS_Store
+Thumbs.db
