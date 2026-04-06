@@ -1,16 +1,126 @@
-# React + Vite
+# PromptVision Studio
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+PromptVision Studio is a YouTube thumbnail generation platform built with React, Vite, Node.js, Express, MongoDB, Cohere, and Hugging Face. The app lets users log in, write a prompt, generate a thumbnail, and revisit previous generations from a threaded history view.
 
-Currently, two official plugins are available:
+## What The Platform Does
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Turns a short idea into a refined thumbnail prompt
+- Generates a thumbnail image from that prompt
+- Stores generations in a conversation thread per user
+- Lets users reopen past threads and delete old work
+- Supports Google sign-in as well as email and password auth
+- Includes privacy, security, terms, and consent pages
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Frontend: React, Vite, React Router, Framer Motion, Axios, Lucide icons
+- Backend: Node.js, Express, MongoDB, Mongoose, JWT, CORS, dotenv
+- AI services: Cohere prompt refinement and Hugging Face image generation
 
-## Expanding the ESLint configuration
+## Screenshots
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Add your screenshot files here:
+
+- `src/assets/screenshots/landing.png`
+- `src/assets/screenshots/home.png`
+- `src/assets/screenshots/login.png`
+- `src/assets/screenshots/register.png`
+
+If you want to keep the repo structure explicit, these are the same files relative to the project root:
+
+- `frontend/src/assets/screenshots/landing.png`
+- `frontend/src/assets/screenshots/home.png`
+- `frontend/src/assets/screenshots/login.png`
+- `frontend/src/assets/screenshots/register.png`
+
+Once you replace the images, the README can display them like this:
+
+- Landing: ![Landing screen](src/assets/screenshots/landing.png)
+- Home: ![Home screen](src/assets/screenshots/home.png)
+- Login: ![Login screen](src/assets/screenshots/login.png)
+- Register: ![Register screen](src/assets/screenshots/register.png)
+
+## How To Use The Platform
+
+1. Create a `.env` file for the frontend and set `VITE_GOOGLE_CLIENT_ID`.
+2. Create a `.env` file for the backend and set `MONGO_URI`, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `COHERE_API_KEY`, and `HUGGINGFACE_TOKEN`.
+3. Start the backend server.
+4. Start the frontend development server.
+5. Open the app in the browser.
+6. Register or sign in with email/password or Google.
+7. On the home screen, choose a preset or type a custom idea.
+8. Submit the prompt to generate a thumbnail.
+9. Open the sidebar to review your saved history.
+10. Open any previous thread or delete it when needed.
+
+## Local Development
+
+Install dependencies for both apps first:
+
+```bash
+cd backend
+npm install
+
+cd ../frontend
+npm install
+```
+
+Run the backend:
+
+```bash
+cd backend
+npm run dev
+```
+
+Run the frontend:
+
+```bash
+cd frontend
+npm run dev
+```
+
+## Production Build
+
+Build the frontend for deployment:
+
+```bash
+cd frontend
+npm run build
+```
+
+The backend serves the built frontend when `frontend/dist` exists.
+
+## Available Routes
+
+Frontend pages:
+
+- `/`
+- `/login`
+- `/register`
+- `/privacy`
+- `/terms`
+- `/security`
+
+API routes:
+
+- `GET /api/health`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/google`
+- `POST /api/images/generate`
+- `GET /api/images/history`
+- `DELETE /api/images/:id`
+
+## Notes
+
+- Auth state is stored in `localStorage` as a token plus user profile data.
+- The app uses `baseURL: /api`, so frontend and backend should be served under the same origin in production.
+- `render.yaml` is configured to build the frontend and start the backend service.
+
+## Commands
+
+```bash
+npm run dev
+npm run build
+npm run lint
+```
