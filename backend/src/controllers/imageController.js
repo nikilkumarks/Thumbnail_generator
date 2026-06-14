@@ -1,6 +1,6 @@
 const Generation = require('../models/Generation');
 const Conversation = require('../models/Conversation');
-const { CohereClient } = require("cohere-ai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { HfInference } = require("@huggingface/inference");
 
 // @desc    Generate a thumbnail image (Threaded Conversation)
@@ -13,26 +13,32 @@ const generateImage = async (req, res) => {
     return res.status(400).json({ message: 'Prompt is required' });
   }
 
-  const COHERE_KEY = process.env.COHERE_API_KEY?.trim();
+  const GEMINI_KEY = process.env.GEMINI_API_KEY?.trim();
   const HF_TOKEN = process.env.HUGGINGFACE_TOKEN?.trim();
 
-  if (!COHERE_KEY || !HF_TOKEN) {
+  if (!GEMINI_KEY || !HF_TOKEN) {
     return res.status(500).json({ message: 'API Keys are missing in .env' });
   }
 
   try {
     //  ब्रेन (Refining the prompt)
-    const cohere = new CohereClient({ token: COHERE_KEY });
-    const responseChat = await cohere.chat({
-      model: "command-r-08-2024",
-      message: `Refine this into a high-quality video thumbnail description: ${prompt}`,
-    });
-    
-    const refinedPrompt = responseChat.text.trim().replace(/^["'\s]+|["'\s]+$/g, "");
+    const genAI = new GoogleGenerativeAI(GEMINI_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+    const promptText = `You are an expert YouTube thumbnail designer. Refine the following user idea into a highly detailed image generation prompt for an AI image generator. 
+CRITICAL RULES:
+1. STRICTLY PRESERVE all specific brand names, vehicle models (e.g., Royal Enfield Himalayan 450), objects, and geographical locations (e.g., Bangalore, Chikmagalur) exactly as the user wrote them. Do NOT generalize them into vague terms.
+2. The image must be perfectly suited for a YouTube thumbnail: high contrast, vibrant colors, cinematic lighting, a clear and eye-catching main subject, and leaving clean negative space for text overlays.
+3. Specify that there should be NO text or words generated in the image itself.
+Return ONLY the refined prompt. 
+User idea: ${prompt}`;
+
+    const result = await model.generateContent(promptText);
+    const refinedPrompt = result.response.text().trim().replace(/^["'\s]+|["'\s]+$/g, "");
 
     // आर्टिस्ट (Generating the visual)
     const hf = new HfInference(HF_TOKEN);
     const blob = await hf.textToImage({
+      provider: "hf-inference",
       model: "black-forest-labs/FLUX.1-schnell",
       inputs: refinedPrompt,
       parameters: { width: 1280, height: 720 }
@@ -48,9 +54,9 @@ const generateImage = async (req, res) => {
     }
 
     if (!convo) {
-      convo = await Conversation.create({ 
-        user: req.user._id, 
-        title: prompt.slice(0, 30) + (prompt.length > 30 ? '...' : '') 
+      convo = await Conversation.create({
+        user: req.user._id,
+        title: prompt.slice(0, 30) + (prompt.length > 30 ? '...' : '')
       });
     }
 
@@ -74,7 +80,7 @@ const generateImage = async (req, res) => {
 
   } catch (error) {
     console.error("❌ AI Error:", error.message);
-    res.status(500).json({ success: false, message: 'Generation failed' });
+    res.status(500).json({ success: false, message: `Generation failed: ${error.message}` });
   }
 };
 
@@ -95,10 +101,10 @@ const deleteGeneration = async (req, res) => {
   try {
     const convo = await Conversation.findOneAndDelete({ _id: req.params.id, user: req.user._id });
     if (!convo) return res.status(404).json({ message: 'Not found' });
-    
+
     // Cleanup images in that thread
     await Generation.deleteMany({ conversation: convo._id });
-    
+
     res.json({ success: true, message: 'Thread deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Delete failed' });

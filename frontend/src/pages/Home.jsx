@@ -18,6 +18,7 @@ const Home = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
   const { user } = useAuth();
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
@@ -56,6 +57,16 @@ const Home = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, generating]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setPreviewImage(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const fetchHistory = async () => {
     try {
@@ -155,6 +166,126 @@ const Home = () => {
       <Navbar />
 
       <LoginModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
+      <AnimatePresence>
+        {previewImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setPreviewImage(null)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 6000,
+              background: 'rgba(0, 0, 0, 0.92)',
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: isMobile ? '1rem' : '2rem'
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.96, y: 12 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.96, y: 12 }}
+              transition={{ duration: 0.22 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: 'min(96vw, 1400px)',
+                maxHeight: '94vh',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem'
+              }}
+            >
+              <div
+                style={{
+                  background: '#0F0F0F',
+                  border: '1px solid #222',
+                  borderRadius: '20px',
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  boxShadow: '0 30px 80px rgba(0,0,0,0.6)',
+                  maxHeight: '94vh',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  position: 'relative'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setPreviewImage(null)}
+                  aria-label="Close preview"
+                  style={{
+                    position: 'absolute',
+                    top: '16px',
+                    right: '16px',
+                    zIndex: 10,
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '999px',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    background: 'rgba(0,0,0,0.5)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    color: 'white',
+                    display: 'grid',
+                    placeItems: 'center',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <X size={18} />
+                </button>
+                <img
+                  src={previewImage.src}
+                  alt={previewImage.prompt ? `Preview for ${previewImage.prompt}` : 'Fullscreen preview'}
+                  style={{
+                    width: '100%',
+                    maxHeight: 'calc(100vh - 220px)',
+                    objectFit: 'contain',
+                    display: 'block',
+                    background: '#000',
+                    flexShrink: 0
+                  }}
+                />
+                <div style={{
+                  padding: isMobile ? '1rem' : '1rem 1.25rem',
+                  borderTop: '1px solid #222',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: isMobile ? 'flex-start' : 'center',
+                  gap: '1rem',
+                  flexDirection: isMobile ? 'column' : 'row'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', letterSpacing: '1px', color: '#666', fontWeight: '800', marginBottom: '0.35rem' }}>FULLSCREEN PREVIEW</div>
+                    <div style={{ color: 'white', fontSize: '0.95rem', lineHeight: '1.5' }}>{previewImage.prompt || 'Generated thumbnail'}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    style={{ borderRadius: '8px', padding: '0.9rem 1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', whiteSpace: 'nowrap', flexShrink: 0 }}
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = previewImage.src;
+                      link.download = `thumb-${Date.now()}.png`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                  >
+                    <Download size={14} /> DOWNLOAD HD
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', paddingTop: '72px' }}>
         {user && (
@@ -341,7 +472,39 @@ const Home = () => {
                           </div>
                         )}
                         <div className="premium-card" style={{ overflow: 'hidden', width: '100%', maxWidth: '720px' }}>
-                          <img src={msg.content} alt="Generated" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }} />
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage({ src: msg.content, prompt: msg.prompt })}
+                            style={{
+                              width: '100%',
+                              padding: 0,
+                              border: 'none',
+                              background: 'transparent',
+                              cursor: 'zoom-in',
+                              display: 'block',
+                              position: 'relative'
+                            }}
+                            aria-label="Preview generated image fullscreen"
+                          >
+                            <img src={msg.content} alt="Generated" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }} />
+                            <div style={{
+                              position: 'absolute',
+                              top: '12px',
+                              right: '12px',
+                              background: 'rgba(0,0,0,0.5)',
+                              backdropFilter: 'blur(4px)',
+                              WebkitBackdropFilter: 'blur(4px)',
+                              borderRadius: '8px',
+                              width: '34px',
+                              height: '34px',
+                              display: 'grid',
+                              placeItems: 'center',
+                              color: 'white',
+                              border: '1px solid rgba(255,255,255,0.15)'
+                            }}>
+                              <ImageIcon size={16} />
+                            </div>
+                          </button>
                           <div style={{ 
                             padding: isMobile ? '0.75rem' : '1rem 1.25rem', 
                             background: '#0F0F0F', 
@@ -363,6 +526,7 @@ const Home = () => {
                               }}>
                                 <Download size={14} /> {isMobile ? 'DOWNLOAD' : 'DOWNLOAD HD'}
                               </button>
+
                               <button onClick={() => setPrompt(`${msg.prompt}`)} style={{ flex: isMobile ? 1 : 'none', background: 'transparent', border: '1px solid #333', borderRadius: '6px', padding: '0 1.25rem', fontSize: '0.8125rem', height: '38px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                 <Wand2 size={14} /> {isMobile ? 'RE-PROMPT' : 'RE-PROMPT'}
                               </button>
