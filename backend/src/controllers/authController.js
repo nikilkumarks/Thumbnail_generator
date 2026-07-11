@@ -1,13 +1,11 @@
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const axios = require('axios');
 const { OAuth2Client } = require('google-auth-library');
-
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d',
-  });
-};
+const {
+  setAuthCookie,
+  clearAuthCookie,
+  formatUserResponse,
+} = require('../utils/authCookie');
 
 // @desc    Register a new user
 // @route   POST /api/auth/register
@@ -29,12 +27,8 @@ const registerUser = async (req, res) => {
     });
 
     if (user) {
-      res.status(201).json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        token: generateToken(user._id),
-      });
+      setAuthCookie(res, user._id);
+      res.status(201).json(formatUserResponse(user));
     } else {
       res.status(400).json({ message: 'Invalid user data' });
     }
@@ -56,19 +50,14 @@ const loginUser = async (req, res) => {
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
-    
-    // Check if user has a password (they might have registered with Google only)
+
     if (!user.password) {
       return res.status(400).json({ message: 'Please login using Google' });
     }
 
     if (user && (await user.matchPassword(password))) {
-      res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        token: generateToken(user._id),
-      });
+      setAuthCookie(res, user._id);
+      res.json(formatUserResponse(user));
     } else {
       res.status(401).json({ message: 'Invalid email or password' });
     }
@@ -83,20 +72,20 @@ const loginUser = async (req, res) => {
 // @access  Public
 const googleLogin = async (req, res) => {
   const { token } = req.body;
-  
+
   if (!token) {
     return res.status(400).json({ message: 'No token provided' });
   }
 
   const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID?.trim();
   const client = new OAuth2Client(GOOGLE_CLIENT_ID);
-  
+
   try {
     let name, email, sub, picture;
 
     if (req.body.isAccessToken) {
       const { data } = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       name = data.name;
       email = data.email;
@@ -108,16 +97,16 @@ const googleLogin = async (req, res) => {
         idToken: token,
         audience: GOOGLE_CLIENT_ID,
       });
-      
+
       const payload = ticket.getPayload();
       name = payload.name;
       email = payload.email;
       sub = payload.sub;
       picture = payload.picture;
     }
-    
+
     let user = await User.findOne({ email });
-    
+
     if (!user) {
       user = await User.create({
         name,
@@ -126,19 +115,13 @@ const googleLogin = async (req, res) => {
         picture,
       });
     } else {
-      // Sync Google picture and ID if not already there
       user.googleId = sub;
       user.picture = picture;
       await user.save();
     }
-    
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      picture: user.picture,
-      token: generateToken(user._id),
-    });
+
+    setAuthCookie(res, user._id);
+    res.json(formatUserResponse(user));
   } catch (error) {
     console.error('Google Verification Failed!');
     console.error('Error Message:', error.message);
@@ -147,4 +130,19 @@ const googleLogin = async (req, res) => {
   }
 };
 
-module.exports = { registerUser, loginUser, googleLogin };
+// @desc    Get current user from cookie
+// @route   GET /api/auth/me
+// @access  Private
+const getMe = async (req, res) => {
+  res.json(formatUserResponse(req.user));
+};
+
+// @desc    Logout user
+// @route   POST /api/auth/logout
+// @access  Public
+const logoutUser = async (req, res) => {
+  clearAuthCookie(res);
+  res.json({ success: true });
+};
+
+module.exports = { registerUser, loginUser, googleLogin, getMe, logoutUser };

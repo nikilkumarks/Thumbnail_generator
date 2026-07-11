@@ -1,225 +1,164 @@
-import React, { useState } from 'react';
-import { History, Plus, Image as ImageIcon, Trash2, Search, X, Clock, MessageSquare, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, Search, X, Clock, MessageSquare, ChevronRight, Star } from 'lucide-react';
 
-const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentId, onClose, isMobile }) => {
+const STROKE = 2;
+
+const Sidebar = ({
+  history = [],
+  historyLoading = false,
+  onNewChat,
+  onSelectWork,
+  onDeleteWork,
+  currentId,
+  onClose,
+  isMobile,
+  onFilterChange,
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [view, setView] = useState('all');
+  const [dateRange, setDateRange] = useState('all');
 
-  const filteredHistory = history.filter(item => 
-    item.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    item.generations?.[0]?.prompt?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    const params = { q: searchTerm || undefined, favorites: view === 'favorites' ? 'true' : undefined };
+    if (dateRange === 'week') {
+      params.from = new Date(Date.now() - 7 * 86400000).toISOString();
+    } else if (dateRange === 'month') {
+      params.from = new Date(Date.now() - 30 * 86400000).toISOString();
+    }
+    onFilterChange?.(params);
+  }, [searchTerm, view, dateRange, onFilterChange]);
+
+  const filteredHistory = history.filter((item) => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return item.title?.toLowerCase().includes(term) ||
+      item.generations?.some((g) =>
+        g.userPrompt?.toLowerCase().includes(term) ||
+        g.refinedPrompt?.toLowerCase().includes(term) ||
+        g.prompt?.toLowerCase().includes(term)
+      );
+  });
 
   return (
-    <div style={{
-      width: '260px',
-      height: '100dvh',
-      backgroundColor: '#0A0A0A',
-      borderRight: '1px solid rgba(255, 255, 255, 0.05)',
-      display: 'flex',
-      flexDirection: 'column',
-      color: 'white',
-      zIndex: 100,
-      position: 'relative'
-    }}>
-      {/* Mobile Top Controls */}
+    <div className="sidebar-panel">
       {isMobile && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.75rem 0.75rem 0' }}>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '8px',
-              padding: '6px',
-              color: 'white',
-              display: 'grid',
-              placeItems: 'center',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <X size={18} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: 'var(--space-3)' }}>
+          <button type="button" onClick={onClose} className="btn-icon btn-icon--ghost" aria-label="Close">
+            <X size={18} strokeWidth={STROKE} />
           </button>
         </div>
       )}
 
-      {/* Premium Search Container */}
-      <div style={{ padding: isMobile ? '0.75rem' : '1.25rem 0.75rem 0.75rem' }}>
-        <div style={{ 
-          position: 'relative', 
-          background: 'rgba(255, 255, 255, 0.03)', 
-          borderRadius: '12px', 
-          border: '1px solid rgba(255, 255, 255, 0.06)',
-          display: 'flex',
-          alignItems: 'center',
-          padding: '2px 10px',
-          backdropFilter: 'blur(10px)',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-        }} className="search-glass">
-          <Search size={14} color="#666" />
-          <input 
+      <div style={{ padding: 'var(--space-4)' }}>
+        <div className="glass search-glass" style={{ display: 'flex', alignItems: 'center', padding: '2px var(--space-3)', gap: 'var(--space-2)' }}>
+          <Search size={15} strokeWidth={STROKE} color="#666" />
+          <input
             type="text"
-            placeholder="Search creations..."
+            placeholder="Search history..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              padding: '10px 8px',
-              color: 'white',
-              fontSize: '0.8125rem',
-              width: '100%',
-              outline: 'none',
-              fontWeight: '500'
-            }}
+            style={{ flex: 1, background: 'transparent', border: 'none', color: 'white', fontSize: '0.85rem', padding: 'var(--space-3) 0', outline: 'none' }}
           />
-          {searchTerm && <X size={14} color="#666" onClick={() => setSearchTerm('')} style={{ cursor: 'pointer' }} />}
+          {searchTerm && (
+            <button type="button" onClick={() => setSearchTerm('')} className="btn-icon" style={{ padding: 4 }}>
+              <X size={14} strokeWidth={STROKE} />
+            </button>
+          )}
         </div>
       </div>
 
-      <div style={{ padding: '0.25rem 0.75rem 1rem' }}>
-        <button 
-          onClick={onNewChat}
-          style={{
-            width: '100%',
-            padding: '1rem',
-            background: 'linear-gradient(rgba(255, 255, 255, 0.05), transparent)',
-            border: '1px dashed rgba(255, 255, 255, 0.1)',
-            borderRadius: '14px',
-            color: 'white',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            fontSize: '0.875rem',
-            fontWeight: '600',
-            cursor: 'pointer',
-            textAlign: 'left',
-            transition: 'all 0.3s ease'
-          }}
-          className="sidebar-new-btn"
-        >
-          <div style={{ 
-            width: '28px', 
-            height: '28px', 
-            background: 'var(--youtube-red)', 
-            borderRadius: '8px', 
-            display: 'grid', 
-            placeItems: 'center',
-            boxShadow: '0 4px 10px rgba(255,0,0,0.2)'
-          }}>
-            <Plus size={16} strokeWidth={3} />
-          </div>
-          New Generation
+      <div className="sidebar-filters">
+        <button type="button" className={`sidebar-filter-tab ${view === 'all' ? 'sidebar-filter-tab--active' : ''}`} onClick={() => setView('all')}>All</button>
+        <button type="button" className={`sidebar-filter-tab ${view === 'favorites' ? 'sidebar-filter-tab--active' : ''}`} onClick={() => setView('favorites')}>
+          <Star size={12} strokeWidth={STROKE} /> Favorites
         </button>
       </div>
 
-      {/* History List - Scrollable */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0 0.5rem 1rem' }} className="history-scroll">
-        <div style={{ 
-          padding: '1.5rem 0.75rem 0.75rem', 
-          fontSize: '0.6875rem', 
-          fontWeight: '800', 
-          textTransform: 'uppercase', 
-          color: '#555',
-          letterSpacing: '1.5px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <span>History Threads</span>
-          {searchTerm && <span style={{ color: 'var(--youtube-red)', fontVariantNumeric: 'tabular-nums' }}>{filteredHistory.length}</span>}
-        </div>
+      <div className="sidebar-date-filters">
+        {['all', 'week', 'month'].map((r) => (
+          <button key={r} type="button" className={`prompt-tools-pill ${dateRange === r ? 'prompt-tools-pill--active' : ''}`} style={{ fontSize: '0.68rem', padding: '4px 10px' }} onClick={() => setDateRange(r)}>
+            {r === 'all' ? 'All time' : r === 'week' ? '7 days' : '30 days'}
+          </button>
+        ))}
+      </div>
 
-        {filteredHistory.length === 0 ? (
-          <div style={{ padding: '3rem 1.5rem', textAlign: 'center', color: '#333', fontSize: '0.8125rem' }}>
-            <div style={{ width: '48px', height: '48px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', border: '1px solid rgba(255,255,255,0.03)' }}>
-               <Clock size={24} color="#222" />
+      <div style={{ padding: '0 var(--space-4) var(--space-4)' }}>
+        <button type="button" onClick={onNewChat} className="sidebar-new-btn">
+          <span className="sidebar-new-btn__icon"><Plus size={18} strokeWidth={2.5} /></span>
+          New Thumbnail
+        </button>
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 var(--space-3)' }}>
+        <p className="text-caption" style={{ padding: 'var(--space-4) var(--space-2) var(--space-2)' }}>
+          {view === 'favorites' ? 'Starred' : 'Recent'} {searchTerm && <span className="text-accent">({filteredHistory.length})</span>}
+        </p>
+
+        {historyLoading ? (
+          <div className="sidebar-skeleton">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="sidebar-skeleton__row shimmer" />
+            ))}
+          </div>
+        ) : filteredHistory.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 'var(--space-12) var(--space-4)', color: '#444' }}>
+            <div style={{ width: 56, height: 56, margin: '0 auto var(--space-4)', borderRadius: 'var(--radius-lg)', background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.08)', display: 'grid', placeItems: 'center' }}>
+              <Clock size={24} strokeWidth={STROKE} color="#333" />
             </div>
-            <p style={{ fontWeight: '500' }}>No creative history yet.</p>
+            <p className="text-body-sm">{view === 'favorites' ? 'No favorites yet' : 'Your creations will appear here'}</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
             {filteredHistory.map((item) => {
               const isActive = currentId === item._id;
+              const thumb = item.generations?.[item.generations.length - 1];
+              const hasFavorite = item.generations?.some((g) => g.isFavorite);
               return (
-                <div key={item._id} className="sidebar-history-item" style={{ position: 'relative', display: 'flex', alignItems: 'center', group: 'true' }}>
+                <div key={item._id} className="sidebar-history-item" style={{ position: 'relative' }}>
                   <button
+                    type="button"
                     onClick={() => onSelectWork(item)}
                     style={{
-                      flex: 1,
-                      padding: '12px',
-                      paddingRight: '45px',
-                      background: isActive ? 'rgba(255, 0, 0, 0.08)' : 'transparent',
-                      border: isActive ? '1px solid rgba(255, 0, 0, 0.15)' : '1px solid transparent',
-                      borderRadius: '12px',
+                      width: '100%',
+                      padding: 'var(--space-3)',
+                      paddingRight: 44,
+                      background: isActive ? 'rgba(255, 0, 0, 0.1)' : 'transparent',
+                      border: isActive ? '1px solid rgba(255, 0, 0, 0.25)' : '1px solid transparent',
+                      borderRadius: 'var(--radius-md)',
                       color: isActive ? 'white' : '#999',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '12px',
-                      fontSize: '0.875rem',
-                      textAlign: 'left',
+                      gap: 'var(--space-3)',
                       cursor: 'pointer',
-                      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                      overflow: 'hidden'
+                      textAlign: 'left',
                     }}
                   >
-                    <div style={{ 
-                      width: '42px', 
-                      height: '26px', 
-                      borderRadius: '6px', 
-                      overflow: 'hidden', 
-                      flexShrink: 0,
-                      background: '#1A1A1A',
-                      border: '1px solid rgba(255,255,255,0.05)',
-                      boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
-                    }}>
-                      {item.generations?.[0] ? (
-                        <img src={item.generations[item.generations.length-1].imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div style={{ width: 44, height: 28, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: '#222', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      {thumb ? (
+                        <img src={thumb.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}><MessageSquare size={12} /></div>
+                        <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
+                          <MessageSquare size={12} strokeWidth={STROKE} />
+                        </div>
                       )}
                     </div>
-                    
-                    <span style={{ 
-                      flex: 1, 
-                      whiteSpace: 'nowrap', 
-                      overflow: 'hidden', 
-                      textOverflow: 'ellipsis',
-                      fontWeight: isActive ? '700' : '500',
-                      letterSpacing: '-0.1px'
-                    }}>
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isActive ? 600 : 400, fontSize: '0.85rem' }}>
+                      {hasFavorite && <Star size={10} fill="currentColor" className="text-accent" style={{ display: 'inline', marginRight: 4 }} />}
                       {item.title}
                     </span>
-                    
-                    {isActive && <ChevronRight size={14} color="var(--youtube-red)" strokeWidth={3} />}
+                    {isActive && <ChevronRight size={14} strokeWidth={2.5} className="text-accent" />}
                   </button>
-
-                  <button 
+                  <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (window.confirm("Delete this masterpiece thread? This cannot be undone.")) {
-                        onDeleteWork(item._id);
-                      }
+                      if (window.confirm('Delete this thread?')) onDeleteWork(item._id);
                     }}
-                    className="trash-btn"
-                    style={{
-                      position: 'absolute',
-                      right: '12px',
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      backdropFilter: 'blur(4px)',
-                      border: 'none',
-                      color: '#444',
-                      cursor: 'pointer',
-                      zIndex: 2,
-                      padding: '6px',
-                      borderRadius: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-                    }}
+                    className="trash-btn btn-icon"
+                    style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)' }}
+                    aria-label="Delete"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={14} strokeWidth={STROKE} />
                   </button>
                 </div>
               );
@@ -228,29 +167,12 @@ const Sidebar = ({ history = [], onNewChat, onSelectWork, onDeleteWork, currentI
         )}
       </div>
 
-      {/* Persistent Visual Footer */}
-      <div style={{ padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.05)', backgroundColor: '#070707' }}>
-         <div style={{ 
-           display: 'flex', 
-           alignItems: 'center', 
-           gap: '12px', 
-           color: 'var(--text-muted)', 
-           fontSize: '0.75rem',
-           fontWeight: '600'
-         }}>
-            <div style={{ width: '8px', height: '8px', background: '#FF0000', borderRadius: '50%' }}></div>
-            Studio Live (Flux Engine)
-         </div>
+      <div style={{ padding: 'var(--space-4)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="badge" style={{ width: 'fit-content' }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0f0', boxShadow: '0 0 8px #0f0' }} />
+          Engine Online
+        </div>
       </div>
-
-      <style>{`
-        .sidebar-history-item .trash-btn { opacity: 0; }
-        .sidebar-history-item:hover .trash-btn { opacity: 1; }
-        .sidebar-history-item:hover button:not(.trash-btn) { background: rgba(255,255,255,0.03); color: white; }
-        .trash-btn:hover { color: #FF4C4C !important; background: rgba(255,0,0,0.15) !important; }
-        .sidebar-new-btn:hover { border-color: rgba(255,0,0,0.3); background-color: rgba(255,255,255,0.01); }
-        .search-glass:focus-within { border-color: rgba(255,0,0,0.3) !important; background: rgba(255,255,255,0.05) !important; }
-      `}</style>
     </div>
   );
 };

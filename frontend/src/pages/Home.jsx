@@ -1,13 +1,37 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Navbar from '../components/Navbar';
 import LoginModal from '../components/LoginModal';
 import Sidebar from '../components/Sidebar';
 import Footer from '../components/Footer';
-import { Send, Loader2, Download, Image as ImageIcon, Sparkles, Wand2, Video, Gamepad2, Monitor, Camera, Tv, Menu, Stars, Info, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import BrandLogo from '../components/BrandLogo';
+import PromptToolsPanel, { buildPromptModifiers } from '../components/PromptToolsPanel';
+import ImagePreviewModal from '../components/ImagePreviewModal';
+import GeneratedThumbnail, { PromptBubble } from '../components/GeneratedThumbnail';
+import ThumbnailEditor from '../components/ThumbnailEditor';
+import EditRegionModal from '../components/EditRegionModal';
+import OnboardingTour, { shouldShowOnboarding } from '../components/OnboardingTour';
+import useKeyboardShortcuts from '../hooks/useKeyboardShortcuts';
+import { SIZE_PRESETS } from '../constants/sizePresets';
+import {
+  Send, Loader2, Image as ImageIcon, Gamepad2, Monitor, Camera, Stars, Info,
+  PanelLeftClose, PanelLeftOpen, SlidersHorizontal, X, RotateCcw,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+const STROKE = 2;
+const ICON = { sm: 14, md: 16, lg: 18, xl: 24 };
+const MAX_REF_BYTES = 5 * 1024 * 1024;
+
+const PACKS = [
+  { title: 'Gamer Pack', desc: 'High-contrast, action-packed gaming visual previews.', icon: Gamepad2, prompt: 'High-intensity, cinematic gaming action scene with glowing effects and bold highlights.' },
+  { title: 'Lifestyle Vlog', desc: 'Natural, airy, and inviting travel or lifestyle themes.', icon: Camera, prompt: 'Minimalist, bright, and vibrant travel vlog thumbnail with natural lighting and soft focus.' },
+  { title: 'Tech Review', desc: 'Sharp, precision-focused hardware and gadget setups.', icon: Monitor, prompt: 'High-tech, sleek hardware setup with professional studio lighting and clean depth of field.' },
+  { title: 'Educational', desc: 'Clean, structured, and informative visual layouts.', icon: Stars, prompt: 'Informative, clean tutorial thumbnail with easy-to-read layout and clear focus on the subject.' },
+];
+
+const DEFAULT_TOOLS = { style: 'default', mood: null, textOverlay: 'none' };
 
 const Home = () => {
   const [prompt, setPrompt] = useState('');
@@ -15,63 +39,210 @@ const Home = () => {
   const [rawHistory, setRawHistory] = useState([]);
   const [currentId, setCurrentId] = useState(null);
   const [generating, setGenerating] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [referenceImage, setReferenceImage] = useState(null);
+  const [promptTools, setPromptTools] = useState(DEFAULT_TOOLS);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [sizePreset, setSizePreset] = useState('youtube');
+  const [lastFailedRequest, setLastFailedRequest] = useState(null);
+  const [editorTarget, setEditorTarget] = useState(null);
+  const [editTarget, setEditTarget] = useState(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [expandedRefined, setExpandedRefined] = useState({});
+  const [historyFilters, setHistoryFilters] = useState({});
   const { user } = useAuth();
-  const navigate = useNavigate();
   const messagesEndRef = useRef(null);
-
+  const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const previewDownloadRef = useRef(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 992);
+
+  const resetTextareaHeight = useCallback(() => {
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth <= 992;
       setIsMobile(mobile);
-      if (mobile) {
-        setIsSidebarCollapsed(true);
-      } else {
-        setIsSidebarCollapsed(false);
-      }
+      setIsSidebarCollapsed(mobile);
     };
     window.addEventListener('resize', handleResize);
-    handleResize(); // Initial check
+    handleResize();
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  useEffect(() => {
+    if (user && shouldShowOnboarding()) setShowOnboarding(true);
+  }, [user]);
+
+  const fetchHistory = useCallback(async (filters = historyFilters) => {
+    setHistoryLoading(true);
+    try {
+      const { data } = await api.get('/images/history', { params: filters });
+      setRawHistory(data);
+    } catch (err) {
+      console.error('Failed to fetch history', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyFilters]);
 
   useEffect(() => {
-    if (user) {
-      fetchHistory();
-    } else {
+    if (user) fetchHistory();
+    else {
       setMessages([]);
       setRawHistory([]);
       setIsSidebarCollapsed(true);
     }
-  }, [user]);
+  }, [user, fetchHistory]);
 
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, generating]);
 
-  const fetchHistory = async () => {
-    try {
-      const { data } = await api.get('/images/history');
-      setRawHistory(data);
-    } catch (err) {
-      console.error('Failed to fetch history', err);
+  useEffect(() => {
+    if (!prompt) resetTextareaHeight();
+  }, [prompt, resetTextareaHeight]);
+
+  const handleFilterChange = useCallback((filters) => {
+    setHistoryFilters(filters);
+    if (user) {
+      setHistoryLoading(true);
+      api.get('/images/history', { params: filters })
+        .then(({ data }) => setRawHistory(data))
+        .catch(console.error)
+        .finally(() => setHistoryLoading(false));
     }
+  }, [user]);
+
+  const buildFinalPrompt = (basePrompt) => {
+    let final = basePrompt.trim();
+    final += buildPromptModifiers(promptTools);
+    if (referenceImage) {
+      final += ' Match the composition, color palette, and visual mood of the attached reference image.';
+    }
+    return final.trim();
+  };
+
+  const appendGeneration = (data) => {
+    setMessages((prev) => {
+      const next = [...prev];
+      for (let i = next.length - 1; i >= 0; i -= 1) {
+        if (next[i].type === 'prompt') {
+          next[i] = { ...next[i], refinedPrompt: data.refinedPrompt };
+          break;
+        }
+      }
+      next.push({
+        type: 'image',
+        content: data.imageUrl,
+        prompt: data.userPrompt || data.refinedPrompt,
+        refinedPrompt: data.refinedPrompt,
+        id: data.generationId || Date.now(),
+        width: data.width,
+        height: data.height,
+        sizePreset: data.sizePreset,
+        isFavorite: false,
+      });
+      return next;
+    });
+    if (!currentId) setCurrentId(data.conversationId);
+    setLastFailedRequest(null);
+    fetchHistory();
+  };
+
+  const runGenerate = async (payload, { skipPromptBubble = false } = {}) => {
+    setGenerating(true);
+    setError('');
+    try {
+      const { data } = await api.post('/images/generate', payload);
+      if (data.success) {
+        if (skipPromptBubble) {
+          setMessages((prev) => [...prev, {
+            type: 'image',
+            content: data.imageUrl,
+            prompt: payload.userPrompt || payload.prompt,
+            refinedPrompt: data.refinedPrompt,
+            id: data.generationId,
+            width: data.width,
+            height: data.height,
+            sizePreset: data.sizePreset,
+            isFavorite: false,
+          }]);
+          if (!currentId) setCurrentId(data.conversationId);
+          setLastFailedRequest(null);
+          fetchHistory();
+        } else {
+          appendGeneration(data);
+        }
+        return true;
+      }
+      setError('Failed to generate thumbnail.');
+      return false;
+    } catch (err) {
+      setLastFailedRequest(payload);
+      setError(err.response?.data?.message || 'Server error occurred.');
+      return false;
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleSend = async (e) => {
+    if (e) e.preventDefault();
+    if (!prompt.trim() || generating) return;
+    if (!user) { setIsModalOpen(true); return; }
+
+    const displayPrompt = prompt.trim();
+    const apiPrompt = buildFinalPrompt(displayPrompt);
+    const refForMessage = referenceImage?.dataUrl ?? null;
+
+    setMessages((prev) => [...prev, { type: 'prompt', content: displayPrompt, referenceUrl: refForMessage }]);
+    setPrompt('');
+    resetTextareaHeight();
+
+    const payload = {
+      prompt: apiPrompt,
+      userPrompt: displayPrompt,
+      conversationId: currentId,
+      referenceImage: referenceImage?.dataUrl,
+      sizePreset,
+    };
+    setReferenceImage(null);
+
+    await runGenerate(payload);
+  };
+
+  const handleRetry = () => {
+    if (lastFailedRequest && !generating) runGenerate(lastFailedRequest, { skipPromptBubble: true });
   };
 
   const handleSelectWork = (item) => {
     setCurrentId(item._id);
     const threadMessages = [];
-    item.generations.forEach(gen => {
-      threadMessages.push({ type: 'prompt', content: gen.prompt });
-      threadMessages.push({ type: 'image', content: gen.imageUrl, prompt: gen.prompt, id: gen._id });
+    item.generations.forEach((gen) => {
+      threadMessages.push({
+        type: 'prompt',
+        content: gen.userPrompt || gen.prompt,
+        refinedPrompt: gen.refinedPrompt || gen.prompt,
+      });
+      threadMessages.push({
+        type: 'image',
+        content: gen.imageUrl,
+        prompt: gen.userPrompt || gen.prompt,
+        refinedPrompt: gen.refinedPrompt || gen.prompt,
+        id: gen._id,
+        width: gen.width,
+        height: gen.height,
+        isFavorite: gen.isFavorite,
+        sizePreset: gen.sizePreset,
+      });
     });
     setMessages(threadMessages);
     if (isMobile) setIsSidebarCollapsed(true);
@@ -80,13 +251,9 @@ const Home = () => {
   const handleDeleteWork = async (id) => {
     try {
       await api.delete(`/images/${id}`);
-      setRawHistory(prev => prev.filter(item => item._id !== id));
-      if (currentId === id) {
-        setMessages([]);
-        setCurrentId(null);
-      }
+      setRawHistory((prev) => prev.filter((item) => item._id !== id));
+      if (currentId === id) { setMessages([]); setCurrentId(null); }
     } catch (err) {
-      console.error('Delete failed', err);
       setError('Could not delete creation. Try again later.');
     }
   };
@@ -95,299 +262,181 @@ const Home = () => {
     setMessages([]);
     setCurrentId(null);
     setPrompt('');
+    setReferenceImage(null);
+    setLastFailedRequest(null);
+    resetTextareaHeight();
     if (isMobile) setIsSidebarCollapsed(true);
   };
 
-  const handleSend = async (e) => {
-    if (e) e.preventDefault();
-    if (!prompt.trim() || generating) return;
+  const handleReferenceUpload = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setError('Please upload an image file (PNG, JPG, WebP).'); return; }
+    if (file.size > MAX_REF_BYTES) { setError('Reference image must be under 5 MB.'); return; }
+    const reader = new FileReader();
+    reader.onload = () => setReferenceImage({ name: file.name, dataUrl: reader.result });
+    reader.readAsDataURL(file);
+  };
 
-    if (!user) {
-      setIsModalOpen(true);
-      return;
-    }
-
-    const currentPrompt = prompt;
-    const activeConvoId = currentId;
-
-    setMessages(prev => [...prev, { type: 'prompt', content: currentPrompt }]);
-    setPrompt('');
-    setGenerating(true);
-    setError('');
-
+  const handleToggleFavorite = async (msg) => {
+    if (!msg.id) return;
     try {
-      const { data } = await api.post('/images/generate', {
-        prompt: currentPrompt,
-        conversationId: activeConvoId
-      });
-
-      if (data.success) {
-        const newMessage = { type: 'image', content: data.imageUrl, prompt: currentPrompt, id: Date.now() };
-        setMessages(prev => [...prev, newMessage]);
-        if (!activeConvoId) setCurrentId(data.conversationId);
-        fetchHistory();
-      } else {
-        setError('Failed to generate thumbnail.');
-      }
+      const { data } = await api.patch(`/images/generations/${msg.id}/favorite`);
+      setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, isFavorite: data.isFavorite } : m)));
+      fetchHistory();
     } catch (err) {
-      setError(err.response?.data?.message || 'Server error occurred.');
-    } finally {
-      setGenerating(false);
+      setError('Could not update favorite.');
     }
   };
 
-  const chips = [
-    { label: 'E-commerce Sale', icon: <Stars size={14} color="#FFD700" /> },
-    { label: 'Gaming Highlights', icon: <Gamepad2 size={14} /> },
-    { label: 'Travel Vlog', icon: <Camera size={14} /> },
-    { label: 'Unboxing Video', icon: <Tv size={14} /> },
-  ];
+  const handleEdit = async (instruction) => {
+    if (!editTarget) return;
+    setEditLoading(true);
+    setError('');
+    try {
+      const { data } = await api.post('/images/edit', {
+        sourceImage: editTarget.content,
+        editInstruction: instruction,
+        userPrompt: editTarget.prompt,
+        parentGenerationId: editTarget.id,
+        conversationId: currentId,
+        sizePreset: editTarget.sizePreset || sizePreset,
+      });
+      if (data.success) {
+        setMessages((prev) => [...prev, {
+          type: 'prompt',
+          content: `Edit: ${instruction}`,
+          refinedPrompt: data.refinedPrompt,
+        }, {
+          type: 'image',
+          content: data.imageUrl,
+          prompt: editTarget.prompt,
+          refinedPrompt: data.refinedPrompt,
+          id: data.generationId,
+          width: data.width,
+          height: data.height,
+          isFavorite: false,
+        }]);
+        setEditTarget(null);
+        fetchHistory();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Edit failed.');
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
-  const sidebarWidth = isSidebarCollapsed ? '0px' : '260px';
+  const downloadImage = (url, name = `thumb-${Date.now()}.png`) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  useKeyboardShortcuts({
+    previewOpen: Boolean(previewImage),
+    onClosePreview: () => setPreviewImage(null),
+    onDownloadPreview: () => previewDownloadRef.current?.(),
+    canSend: Boolean(prompt.trim()) && !generating,
+    onSend: handleSend,
+  });
+
+  const hasToolModifiers = promptTools.style !== 'default' || promptTools.mood || promptTools.textOverlay !== 'none';
+  const sidebarWidth = isSidebarCollapsed ? '0px' : '280px';
+  const dockLeft = user && !isSidebarCollapsed && !isMobile ? '280px' : 0;
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }} 
-      transition={{ duration: 0.4 }}
-      style={{ height: '100dvh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--youtube-black)', color: 'white' }}
-    >
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }} className="page-bg studio-shell">
       <Navbar />
-
       <LoginModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <ImagePreviewModal
+        imageUrl={previewImage?.url}
+        prompt={previewImage?.prompt}
+        width={previewImage?.width}
+        height={previewImage?.height}
+        onClose={() => setPreviewImage(null)}
+        onDownloadRef={previewDownloadRef}
+      />
+      {editorTarget && (
+        <ThumbnailEditor imageUrl={editorTarget.content} initialPreset={editorTarget.sizePreset || sizePreset} onClose={() => setEditorTarget(null)} />
+      )}
+      <EditRegionModal open={Boolean(editTarget)} loading={editLoading} onClose={() => setEditTarget(null)} onSubmit={handleEdit} />
+      {showOnboarding && <OnboardingTour onComplete={() => setShowOnboarding(false)} />}
 
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', paddingTop: '72px' }}>
+      <div className="studio-body">
         {user && (
-          <div
-            className="sidebar-wrapper"
-            style={{
-              width: sidebarWidth,
-              transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-              overflow: 'hidden',
-              flexShrink: 0,
-              backgroundColor: '#0A0A0A',
-              borderRight: '1px solid rgba(255,255,255,0.05)',
-              position: isMobile ? 'fixed' : 'relative',
-              top: isMobile ? '72px' : 0,
-              bottom: isMobile ? 0 : 0,
-              left: 0,
-              zIndex: 1000,
-              height: isMobile ? 'calc(100dvh - 72px)' : 'auto'
-            }}
-          >
-            <div style={{ width: '260px', height: '100%' }}>
-               <Sidebar 
-                 history={rawHistory} 
-                 onNewChat={handleNewChat} 
-                 onSelectWork={handleSelectWork} 
-                 onDeleteWork={handleDeleteWork} 
-                 currentId={currentId} 
-                 isMobile={isMobile}
-                 onClose={() => setIsSidebarCollapsed(true)}
-               />
+          <div className="sidebar-wrapper" style={{ width: sidebarWidth, transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)', overflow: 'hidden', flexShrink: 0, position: isMobile ? 'fixed' : 'relative', top: isMobile ? '68px' : 0, bottom: isMobile ? 0 : 0, left: 0, zIndex: 1000, height: isMobile ? 'calc(100dvh - 68px)' : 'auto' }}>
+            <div style={{ width: '280px', height: '100%' }}>
+              <Sidebar history={rawHistory} historyLoading={historyLoading} onNewChat={handleNewChat} onSelectWork={handleSelectWork} onDeleteWork={handleDeleteWork} currentId={currentId} isMobile={isMobile} onClose={() => setIsSidebarCollapsed(true)} onFilterChange={handleFilterChange} />
             </div>
           </div>
         )}
 
-        {/* Overlay for mobile when sidebar is open */}
-        {isMobile && !isSidebarCollapsed && (
-          <div 
-            onClick={() => setIsSidebarCollapsed(true)}
-            style={{
-              position: 'fixed',
-              top: '72px',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'rgba(0,0,0,0.6)',
-              backdropFilter: 'blur(4px)',
-              zIndex: 900
-            }}
-          />
-        )}
+        {isMobile && !isSidebarCollapsed && <div className="sidebar-overlay" onClick={() => setIsSidebarCollapsed(true)} />}
 
-        {/* 🎨 PromptVision Immersive Workspace */}
-        <div style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: isMobile ? '1rem' : '1.5rem',
-          position: 'relative',
-          background: 'linear-gradient(rgba(10, 10, 10, 0.92), rgba(10, 10, 10, 0.92)), url("https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80")',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'fixed'
-        }} className="main-content-scroll">
+        <div className="studio-workspace main-content-scroll">
           {user && (
-             <button
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="sidebar-toggle"
-              style={{
-                position: 'fixed',
-                left: isMobile ? '0.75rem' : (isSidebarCollapsed ? '1.25rem' : 'calc(260px + 1.25rem)'),
-                top: '5.5rem',
-                zIndex: 50,
-                background: 'rgba(255, 255, 255, 0.05)',
-                backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '10px',
-                padding: '8px',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                opacity: isMobile && !isSidebarCollapsed ? 0 : 1,
-                pointerEvents: isMobile && !isSidebarCollapsed ? 'none' : 'auto',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-              }}
-            >
-              {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            <button type="button" onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="sidebar-toggle" style={{ position: 'fixed', left: isMobile ? 'var(--space-3)' : (isSidebarCollapsed ? 'var(--space-5)' : 'calc(280px + var(--space-5))'), top: '5.25rem', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isMobile && !isSidebarCollapsed ? 0 : 1, pointerEvents: isMobile && !isSidebarCollapsed ? 'none' : 'auto' }} aria-label={isSidebarCollapsed ? 'Open sidebar' : 'Close sidebar'}>
+              {isSidebarCollapsed ? <PanelLeftOpen size={ICON.lg} strokeWidth={STROKE} /> : <PanelLeftClose size={ICON.lg} strokeWidth={STROKE} />}
             </button>
           )}
 
-          <div style={{ maxWidth: '850px', margin: '0 auto', width: '100%' }}>
+          <div className="studio-content">
             {messages.length === 0 && !generating && (
-              <div style={{ marginTop: isMobile ? '4vh' : '8vh', padding: '0 0.5rem' }} className="fade-in">
-                <div style={{ marginBottom: isMobile ? '2.5rem' : '4rem' }}>
-                  <h1 style={{ 
-                    fontSize: isMobile ? '2rem' : '3.5rem', 
-                    fontWeight: '900', 
-                    marginBottom: '1rem', 
-                    letterSpacing: '-1px', 
-                    color: 'white',
-                    lineHeight: '1.1'
-                  }}>
-                    PromptVision Studio
-                  </h1>
-                  <p style={{ color: '#555', fontSize: isMobile ? '0.85rem' : '1.2rem', fontWeight: '600', letterSpacing: '0.5px' }}>
-                    CHOOSE YOUR CREATIVE ENGINE TO START
-                  </p>
-                </div>
-
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                  gap: '1rem',
-                  marginTop: '1rem'
-                }}>
-                  {[
-                    { title: 'Gamer Pack', desc: 'High-contrast, action-packed gaming visual previews.', icon: <Gamepad2 size={24} />, prompt: 'High-intensity, cinematic gaming action scene with glowing effects and bold highlights.' },
-                    { title: 'Lifestyle Vlog', desc: 'Natural, airy, and inviting travel or lifestyle themes.', icon: <Camera size={24} />, prompt: 'Minimalist, bright, and vibrant travel vlog thumbnail with natural lighting and soft focus.' },
-                    { title: 'Tech Review', desc: 'Sharp, precision-focused hardware and gadget setups.', icon: <Monitor size={24} />, prompt: 'High-tech, sleek hardware setup with professional studio lighting and clean depth of field.' },
-                    { title: 'Educational', desc: 'Clean, structured, and informative visual layouts.', icon: <Stars size={24} />, prompt: 'Informative, clean tutorial thumbnail with easy-to-read layout and clear focus on the subject.' }
-                  ].map((pack, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setPrompt(pack.prompt)}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        textAlign: 'left',
-                        padding: '1.25rem',
-                        background: '#0F0F0F',
-                        border: '1px solid #222',
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        gap: '0.75rem'
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#444'; e.currentTarget.style.background = '#151515'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#222'; e.currentTarget.style.background = '#0F0F0F'; }}
-                    >
-                      <div style={{ color: 'var(--youtube-red)' }}>{pack.icon}</div>
-                      <div>
-                        <h3 style={{ fontSize: '1rem', fontWeight: '800', marginBottom: '0.25rem', color: 'white' }}>{pack.title}</h3>
-                        <p style={{ fontSize: '0.8rem', color: '#555', fontWeight: '500', lineHeight: '1.5' }}>{pack.desc}</p>
-                      </div>
-                    </button>
-                  ))}
+              <div className="studio-hero fade-in" id="studio-hero">
+                <span className="badge" style={{ marginBottom: 'var(--space-5)' }}><BrandLogo size={14} /> Thumbnail Studio</span>
+                <h1 className="text-display text-gradient" style={{ marginBottom: 'var(--space-4)' }}>PromptVision Studio</h1>
+                <p className="text-body" style={{ marginBottom: 'var(--space-10)' }}>Pick a creative pack or describe your vision — export for YouTube, Shorts, or Community.</p>
+                <div className="studio-hero__grid">
+                  {PACKS.map((pack) => {
+                    const PackIcon = pack.icon;
+                    return (
+                      <button key={pack.title} type="button" onClick={() => setPrompt(pack.prompt)} className="card-interactive">
+                        <div className="card-interactive__icon"><PackIcon size={ICON.xl} strokeWidth={STROKE} /></div>
+                        <div>
+                          <h3 className="text-h3" style={{ marginBottom: 'var(--space-1)', color: 'white' }}>{pack.title}</h3>
+                          <p className="text-body-sm" style={{ color: '#666' }}>{pack.desc}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: isMobile ? '1.5rem' : '2.5rem', 
-              paddingBottom: isMobile ? '14rem' : '12rem', 
-              marginTop: '1rem' 
-            }}>
+            <div className="studio-thread">
               <AnimatePresence>
                 {messages.map((msg, index) => (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    key={index}
-                  >
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} key={`${msg.type}-${msg.id || index}`}>
                     {msg.type === 'prompt' ? (
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
-                        <div style={{ 
-                          background: '#1F1F1F', 
-                          border: '1px solid #333', 
-                          padding: isMobile ? '0.75rem 1.1rem' : '1rem 1.4rem', 
-                          borderRadius: '20px 20px 4px 20px', 
-                          maxWidth: isMobile ? '92%' : '85%', 
-                          color: '#DDD' 
-                        }}>
-                          <p style={{ fontSize: isMobile ? '0.9rem' : '1rem', lineHeight: '1.5' }}>{msg.content}</p>
-                        </div>
-                      </div>
+                      <PromptBubble msg={msg} isMobile={isMobile} showRefined={expandedRefined[index]} onToggleRefined={() => setExpandedRefined((p) => ({ ...p, [index]: !p[index] }))} />
                     ) : (
-                      <div style={{ display: 'flex', gap: isMobile ? '0.75rem' : '1.25rem', alignItems: 'flex-start' }}>
-                        {!isMobile && (
-                          <div style={{ width: '36px', height: '36px', background: 'var(--youtube-red)', borderRadius: '8px', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
-                            <Sparkles size={18} color="white" fill="currentColor" strokeWidth={0} />
-                          </div>
-                        )}
-                        <div className="premium-card" style={{ overflow: 'hidden', width: '100%', maxWidth: '720px' }}>
-                          <img src={msg.content} alt="Generated" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }} />
-                          <div style={{ 
-                            padding: isMobile ? '0.75rem' : '1rem 1.25rem', 
-                            background: '#0F0F0F', 
-                            display: 'flex', 
-                            flexDirection: isMobile ? 'column' : 'row',
-                            gap: isMobile ? '1rem' : '0.75rem',
-                            justifyContent: 'space-between', 
-                            alignItems: isMobile ? 'flex-start' : 'center', 
-                            borderTop: '1px solid #222' 
-                          }}>
-                            <div style={{ display: 'flex', gap: '0.75rem', width: isMobile ? '100%' : 'auto' }}>
-                              <button className="btn-primary" style={{ flex: isMobile ? 1 : 'none', height: '38px', padding: '0 1.25rem', fontSize: '0.8125rem', borderRadius: '6px' }} onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = msg.content;
-                                link.download = `thumb-${Date.now()}.png`;
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                              }}>
-                                <Download size={14} /> {isMobile ? 'DOWNLOAD' : 'DOWNLOAD HD'}
-                              </button>
-                              <button onClick={() => setPrompt(`${msg.prompt}`)} style={{ flex: isMobile ? 1 : 'none', background: 'transparent', border: '1px solid #333', borderRadius: '6px', padding: '0 1.25rem', fontSize: '0.8125rem', height: '38px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                <Wand2 size={14} /> {isMobile ? 'RE-PROMPT' : 'RE-PROMPT'}
-                              </button>
-                            </div>
-                            <div style={{ color: '#444', fontSize: '0.65rem', fontWeight: '700', letterSpacing: '1px' }}>1280 × 720 • PNG</div>
-                          </div>
-                        </div>
-                      </div>
+                      <GeneratedThumbnail
+                        msg={msg}
+                        isMobile={isMobile}
+                        onPreview={() => setPreviewImage({ url: msg.content, prompt: msg.prompt, width: msg.width, height: msg.height })}
+                        onDownload={() => downloadImage(msg.content)}
+                        onReprompt={() => setPrompt(msg.prompt)}
+                        onEdit={() => setEditTarget(msg)}
+                        onEditor={() => setEditorTarget(msg)}
+                        onFavorite={() => handleToggleFavorite(msg)}
+                        onCopyRefined={() => navigator.clipboard.writeText(msg.refinedPrompt || msg.prompt)}
+                      />
                     )}
                   </motion.div>
                 ))}
 
                 {generating && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', gap: isMobile ? '0.75rem' : '1.25rem', alignItems: 'flex-start' }}>
-                    {!isMobile && (
-                      <div style={{ width: '36px', height: '36px', background: 'var(--youtube-red)', borderRadius: '8px', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: '4px' }}>
-                        <Sparkles size={18} className="animate-spin" color="white" />
-                      </div>
-                    )}
-                    <div className="premium-card" style={{ width: '100%', maxWidth: '720px', overflow: 'hidden' }}>
-                      <div className="shimmer" style={{ width: '100%', aspectRatio: '16/9' }}></div>
-                      <div style={{ padding: isMobile ? '1rem' : '1.5rem', textAlign: 'center', background: '#0F0F0F' }}>
-                        <p style={{ color: '#555', fontWeight: '600', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                          Developing masterpiece...
-                        </p>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="chat-row">
+                    {!isMobile && <div className="chat-avatar"><Loader2 size={ICON.lg} strokeWidth={STROKE} className="animate-spin" color="white" /></div>}
+                    <div className="premium-card" style={{ width: '100%', maxWidth: '720px' }}>
+                      <div className="shimmer" style={{ width: '100%', aspectRatio: '16/9' }} />
+                      <div style={{ padding: '1.5rem', textAlign: 'center', background: 'rgba(0,0,0,0.35)' }}>
+                        <p className="text-body-sm gen-status"><Loader2 size={ICON.sm} strokeWidth={STROKE} className="animate-spin" /> Refining prompt & generating thumbnail…</p>
                       </div>
                     </div>
                   </motion.div>
@@ -399,140 +448,77 @@ const Home = () => {
         </div>
       </div>
 
-      <div style={{ 
-        position: 'fixed', 
-        bottom: 0, 
-        left: (user && !isSidebarCollapsed && !isMobile) ? '260px' : 0, 
-        right: 0, 
-        padding: isMobile ? '1.5rem 1rem' : '2.5rem 1.5rem', 
-        background: 'linear-gradient(transparent, var(--youtube-black) 40%)', 
-        zIndex: 10, 
-        transition: 'all 0.4s ease-in-out' 
-      }}>
-        <div style={{ maxWidth: '850px', margin: '0 auto' }}>
-          {error && <div style={{ marginBottom: '1rem', background: 'rgba(255,0,0,0.1)', color: '#FF4C4C', padding: '0.6rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Info size={14} /> {error}
-          </div>}
-
-          <div className="chat-input-wrapper" style={{
-            background: '#1A1A1A',
-            borderRadius: '12px',
-            border: '1px solid #222',
-            padding: isMobile ? '10px 12px' : '12px 14px',
-            transition: 'all 0.2s ease',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px'
-          }} id="studio-input">
-            <textarea
-              className="chat-input"
-              placeholder="Describe your next viral vision..."
-              rows={1}
-              value={prompt}
-              onChange={(e) => {
-                e.target.style.height = 'auto';
-                e.target.style.height = e.target.scrollHeight + 'px';
-                setPrompt(e.target.value);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'white',
-                fontSize: isMobile ? '0.9rem' : '0.95rem',
-                fontWeight: '500',
-                resize: 'none',
-                outline: 'none',
-                padding: '4px 0',
-                maxHeight: '150px',
-                lineHeight: '1.5'
-              }}
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
-              <div style={{ display: 'flex', gap: isMobile ? '0.25rem' : '0.75rem' }}>
-                <button
-                  title="Upload Asset"
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    padding: '8px',
-                    borderRadius: '8px',
-                    color: '#444',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'white'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#444'; }}
-                >
-                  <ImageIcon size={19} />
+      <div className="studio-dock" style={{ left: dockLeft }}>
+        <div className="studio-dock__inner">
+          {error && (
+            <div className="alert-error" style={{ marginBottom: 'var(--space-4)', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}><Info size={ICON.sm} strokeWidth={STROKE} /> {error}</span>
+              {lastFailedRequest && (
+                <button type="button" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '6px 12px' }} onClick={handleRetry}>
+                  <RotateCcw size={14} strokeWidth={STROKE} /> Retry
                 </button>
-                <button
-                  title="Prompt Tools"
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    padding: '8px',
-                    borderRadius: '8px',
-                    color: '#444',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'white'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#444'; }}
-                >
-                  <Menu size={19} />
+              )}
+            </div>
+          )}
+
+          <div className="chat-input-wrapper" id="studio-input">
+            <div className="size-preset-row">
+              <span className="size-preset-label">Format</span>
+              <div className="size-preset-options">
+                {Object.entries(SIZE_PRESETS).map(([key, p]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`size-preset-btn ${sizePreset === key ? 'size-preset-btn--active' : ''}`}
+                    onClick={() => setSizePreset(key)}
+                    title={`${p.width}×${p.height}`}
+                  >
+                    {p.label}
+                    <span className="size-preset-btn__ratio">{p.ratio}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {(referenceImage || hasToolModifiers) && (
+              <div className="input-attachments">
+                {referenceImage && (
+                  <div className="reference-chip">
+                    <img src={referenceImage.dataUrl} alt="" />
+                    <span>{referenceImage.name}</span>
+                    <button type="button" className="reference-chip__remove" onClick={() => setReferenceImage(null)} aria-label="Remove reference"><X size={12} strokeWidth={STROKE} /></button>
+                  </div>
+                )}
+                {hasToolModifiers && <span className="tools-active-badge">Tools active</span>}
+              </div>
+            )}
+
+            <textarea ref={textareaRef} className="chat-input" placeholder="Describe your next viral vision…" rows={1} value={prompt}
+              onChange={(e) => { e.target.style.height = 'auto'; e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`; setPrompt(e.target.value); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              style={{ maxHeight: '150px', fontSize: isMobile ? '0.9rem' : '1rem' }}
+            />
+
+            <div className="chat-input-toolbar">
+              <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={handleReferenceUpload} />
+                <button id="studio-upload" type="button" title="Upload reference image" className={`btn-icon ${referenceImage ? 'btn-icon--active' : ''}`} aria-label="Upload reference image" onClick={() => { if (!user) { setIsModalOpen(true); return; } fileInputRef.current?.click(); }}>
+                  <ImageIcon size={19} strokeWidth={STROKE} />
+                </button>
+                <button id="studio-tools" type="button" title="Prompt tools" className={`btn-icon ${toolsOpen || hasToolModifiers ? 'btn-icon--active' : ''}`} aria-label="Prompt tools" aria-expanded={toolsOpen} onClick={() => setToolsOpen((o) => !o)}>
+                  <SlidersHorizontal size={19} strokeWidth={STROKE} />
                 </button>
               </div>
-              <button
-                onClick={handleSend}
-                disabled={!prompt.trim() || generating}
-                style={{
-                  background: prompt.trim() ? 'var(--youtube-red)' : '#262626',
-                  color: 'white',
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  display: 'grid',
-                  placeItems: 'center',
-                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                  cursor: prompt.trim() ? 'pointer' : 'default',
-                  border: 'none'
-                }}
-                className="send-btn"
-              >
-                {generating ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} fill={prompt.trim() ? "currentColor" : "none"} strokeWidth={2.5} />}
+              <button type="button" onClick={handleSend} disabled={!prompt.trim() || generating} className={`send-btn ${prompt.trim() ? 'send-btn--active' : ''}`} aria-label="Send prompt">
+                {generating ? <Loader2 size={ICON.md} strokeWidth={STROKE} className="animate-spin" /> : <Send size={ICON.md} strokeWidth={STROKE} />}
               </button>
             </div>
           </div>
-          <div style={{ marginTop: isMobile ? '0.25rem' : '0.5rem' }}>
-             <Footer />
-          </div>
+
+          <PromptToolsPanel open={toolsOpen} onClose={() => setToolsOpen(false)} tools={promptTools} onChange={setPromptTools} />
+          <Footer compact />
         </div>
       </div>
-
-      <style>{`
-        .animate-spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        #studio-input:focus-within { border-color: #444 !important; background: #1F1F1F !important; }
-        .send-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.1); }
-        .chat-input::placeholder { color: #555; }
-        .main-content-scroll::-webkit-scrollbar { width: 4px; }
-        
-        @media (max-width: 992px) {
-          .shimmer { aspect-ratio: 16/9; }
-        }
-      `}</style>
     </motion.div>
   );
 };

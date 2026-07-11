@@ -1,92 +1,204 @@
 const Generation = require('../models/Generation');
 const Conversation = require('../models/Conversation');
-const { CohereClient } = require("cohere-ai");
-const { HfInference } = require("@huggingface/inference");
+const JobLog = require('../models/JobLog');
+const { runGeneration } = require('../utils/imageAi');
+const { SIZE_PRESETS } = require('../utils/sizePresets');
 
-// @desc    Generate a thumbnail image (Threaded Conversation)
+const logFailedJob = async (type, userId, error) => {
+  try {
+    await JobLog.create({ type, user: userId, error: error?.message || String(error) });
+  } catch (e) {
+    console.error('Failed to log job:', e.message);
+  }
+};
+
+const saveGeneration = async (req, result, { conversationId, parentGeneration, editInstruction }) => {
+  let convo;
+  if (conversationId) {
+    convo = await Conversation.findOne({ _id: conversationId, user: req.user._id });
+  }
+
+  if (!convo) {
+    convo = await Conversation.create({
+      user: req.user._id,
+      title: result.userPrompt.slice(0, 30) + (result.userPrompt.length > 30 ? '...' : ''),
+    });
+  }
+
+  const gen = await Generation.create({
+    user: req.user._id,
+    conversation: convo._id,
+    userPrompt: result.userPrompt,
+    refinedPrompt: result.refinedPrompt,
+    prompt: result.refinedPrompt,
+    imageUrl: result.imageUrl,
+    sizePreset: result.sizePreset,
+    width: result.width,
+    height: result.height,
+    parentGeneration: parentGeneration || undefined,
+    editInstruction: editInstruction || undefined,
+  });
+
+  convo.generations.push(gen._id);
+  await convo.save();
+
+  return { gen, convo };
+};
+
+// @desc    Generate a thumbnail image
 // @route   POST /api/images/generate
-// @access  Private
 const generateImage = async (req, res) => {
-  const { prompt, conversationId } = req.body;
+  const { prompt, conversationId, referenceImage, sizePreset = 'youtube', userPrompt: rawUserPrompt } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ message: 'Prompt is required' });
   }
 
-  const COHERE_KEY = process.env.COHERE_API_KEY?.trim();
-  const HF_TOKEN = process.env.HUGGINGFACE_TOKEN?.trim();
-
-  if (!COHERE_KEY || !HF_TOKEN) {
-    return res.status(500).json({ message: 'API Keys are missing in .env' });
+  if (!SIZE_PRESETS[sizePreset]) {
+    return res.status(400).json({ message: 'Invalid size preset' });
   }
 
+  const userPrompt = rawUserPrompt || prompt;
+
   try {
-    //  ब्रेन (Refining the prompt)
-    const cohere = new CohereClient({ token: COHERE_KEY });
-    const responseChat = await cohere.chat({
-      model: "command-r-08-2024",
-      message: `Refine this into a high-quality video thumbnail description: ${prompt}`,
-    });
-    
-    const refinedPrompt = responseChat.text.trim().replace(/^["'\s]+|["'\s]+$/g, "");
-
-    // आर्टिस्ट (Generating the visual)
-    const hf = new HfInference(HF_TOKEN);
-    const blob = await hf.textToImage({
-      model: "black-forest-labs/FLUX.1-schnell",
-      inputs: refinedPrompt,
-      parameters: { width: 1280, height: 720 }
+    const result = await runGeneration({
+      userPrompt: prompt,
+      referenceImage,
+      sizePreset,
     });
 
-    const buffer = Buffer.from(await blob.arrayBuffer());
-    const imageUrl = `data:image/png;base64,${buffer.toString('base64')}`;
+    result.userPrompt = userPrompt;
 
-    // 🧵 Threading Logic
-    let convo;
-    if (conversationId) {
-      convo = await Conversation.findOne({ _id: conversationId, user: req.user._id });
-    }
-
-    if (!convo) {
-      convo = await Conversation.create({ 
-        user: req.user._id, 
-        title: prompt.slice(0, 30) + (prompt.length > 30 ? '...' : '') 
-      });
-    }
-
-    const gen = await Generation.create({
-      user: req.user._id,
-      conversation: convo._id,
-      prompt: refinedPrompt,
-      imageUrl
-    });
-
-    convo.generations.push(gen._id);
-    await convo.save();
+    const { gen, convo } = await saveGeneration(req, result, { conversationId });
 
     res.status(201).json({
       success: true,
-      imageUrl,
-      prompt: refinedPrompt,
+      imageUrl: result.imageUrl,
+      userPrompt: gen.userPrompt,
+      refinedPrompt: gen.refinedPrompt,
+      prompt: gen.refinedPrompt,
       conversationId: convo._id,
-      createdAt: gen.createdAt
+      generationId: gen._id,
+      sizePreset: gen.sizePreset,
+      width: gen.width,
+      height: gen.height,
+      createdAt: gen.createdAt,
     });
-
   } catch (error) {
-    console.error("❌ AI Error:", error.message);
-    res.status(500).json({ success: false, message: 'Generation failed' });
+    console.error('❌ AI Error:', error.message);
+    await logFailedJob('generate', req.user._id, error);
+
+    const isInvalidHfToken =
+      error.message?.includes('Invalid username or password') ||
+      error.message?.includes('401');
+
+    res.status(500).json({
+      success: false,
+      message: isInvalidHfToken
+        ? 'Invalid HUGGINGFACE_TOKEN. Create a new token at https://huggingface.co/settings/tokens with Inference Providers permission, then update backend/.env'
+        : error.message || 'Generation failed',
+    });
   }
 };
 
-// @desc    Get user history (Conversations)
+// @desc    Edit region / inpaint-style change
+// @route   POST /api/images/edit
+const editImage = async (req, res) => {
+  const { sourceImage, editInstruction, conversationId, userPrompt, parentGenerationId, sizePreset = 'youtube' } = req.body;
+
+  if (!sourceImage || !editInstruction) {
+    return res.status(400).json({ message: 'sourceImage and editInstruction are required' });
+  }
+
+  try {
+    const result = await runGeneration({
+      userPrompt: userPrompt || editInstruction,
+      sourceImage,
+      editInstruction,
+      sizePreset,
+    });
+
+    result.userPrompt = userPrompt || editInstruction;
+
+    const { gen, convo } = await saveGeneration(req, result, {
+      conversationId,
+      parentGeneration: parentGenerationId,
+      editInstruction,
+    });
+
+    res.status(201).json({
+      success: true,
+      imageUrl: result.imageUrl,
+      userPrompt: gen.userPrompt,
+      refinedPrompt: gen.refinedPrompt,
+      conversationId: convo._id,
+      generationId: gen._id,
+      sizePreset: gen.sizePreset,
+      width: gen.width,
+      height: gen.height,
+    });
+  } catch (error) {
+    console.error('❌ Edit Error:', error.message);
+    await logFailedJob('edit', req.user._id, error);
+    res.status(500).json({ success: false, message: error.message || 'Edit failed' });
+  }
+};
+
+// @desc    Get user history
 const getHistory = async (req, res) => {
   try {
-    const history = await Conversation.find({ user: req.user._id })
+    const { favorites, q, from, to } = req.query;
+    const filter = { user: req.user._id };
+
+    if (from || to) {
+      filter.updatedAt = {};
+      if (from) filter.updatedAt.$gte = new Date(from);
+      if (to) filter.updatedAt.$lte = new Date(to);
+    }
+
+    let history = await Conversation.find(filter)
       .populate('generations')
       .sort({ updatedAt: -1 });
+
+    if (q) {
+      const term = q.toLowerCase();
+      history = history.filter((item) =>
+        item.title?.toLowerCase().includes(term) ||
+        item.generations?.some((g) =>
+          g.userPrompt?.toLowerCase().includes(term) ||
+          g.refinedPrompt?.toLowerCase().includes(term)
+        )
+      );
+    }
+
+    if (favorites === 'true') {
+      history = history
+        .map((item) => ({
+          ...item.toObject(),
+          generations: item.generations.filter((g) => g.isFavorite),
+        }))
+        .filter((item) => item.generations.length > 0);
+    }
+
     res.json(history);
   } catch (error) {
     res.status(500).json({ message: 'History failed' });
+  }
+};
+
+// @desc    Toggle favorite on a generation
+// @route   PATCH /api/images/generations/:id/favorite
+const toggleFavorite = async (req, res) => {
+  try {
+    const gen = await Generation.findOne({ _id: req.params.id, user: req.user._id });
+    if (!gen) return res.status(404).json({ message: 'Not found' });
+
+    gen.isFavorite = !gen.isFavorite;
+    await gen.save();
+
+    res.json({ success: true, isFavorite: gen.isFavorite, generationId: gen._id });
+  } catch (error) {
+    res.status(500).json({ message: 'Favorite toggle failed' });
   }
 };
 
@@ -95,14 +207,25 @@ const deleteGeneration = async (req, res) => {
   try {
     const convo = await Conversation.findOneAndDelete({ _id: req.params.id, user: req.user._id });
     if (!convo) return res.status(404).json({ message: 'Not found' });
-    
-    // Cleanup images in that thread
+
     await Generation.deleteMany({ conversation: convo._id });
-    
+
     res.json({ success: true, message: 'Thread deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Delete failed' });
   }
 };
 
-module.exports = { generateImage, getHistory, deleteGeneration };
+// @desc    Size presets list
+const getPresets = (req, res) => {
+  res.json(SIZE_PRESETS);
+};
+
+module.exports = {
+  generateImage,
+  editImage,
+  getHistory,
+  toggleFavorite,
+  deleteGeneration,
+  getPresets,
+};

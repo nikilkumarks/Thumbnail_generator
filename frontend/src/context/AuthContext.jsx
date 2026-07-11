@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { jwtDecode } from 'jwt-decode';
+import PageLoader from '../components/PageLoader';
 
 const AuthContext = createContext(null);
 
@@ -10,26 +10,19 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // On mount, check for existing session
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
+    const restoreSession = async () => {
       try {
-        const decoded = jwtDecode(token);
-        // Basic check if token is expired
-        if (decoded.exp * 1000 < Date.now()) {
-          logout();
-        } else {
-          const storedUser = localStorage.getItem('user');
-          if (storedUser) {
-            setUser(JSON.parse(storedUser));
-          }
-        }
-      } catch (err) {
-        logout();
+        const { data } = await api.get('/auth/me');
+        setUser(data);
+      } catch {
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+
+    restoreSession();
   }, []);
 
   const login = async (email, password) => {
@@ -56,7 +49,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const token = response.access_token || response.credential;
       const isAccessToken = !!response.access_token;
-      
+
       const { data } = await api.post('/auth/google', { token, isAccessToken });
       handleAuthSuccess(data);
       navigate('/');
@@ -65,24 +58,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const handleAuthSuccess = (data) => {
-    const { token, ...userData } = data;
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userData));
+  const handleAuthSuccess = (userData) => {
     setUser(userData);
     navigate('/');
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    navigate('/login');
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (err) {
+      console.error('Logout failed', err);
+    } finally {
+      setUser(null);
+      navigate('/login');
+    }
   };
 
   return (
     <AuthContext.Provider value={{ user, login, register, logout, loading, handleGoogleSuccess }}>
-      {!loading && children}
+      {loading ? <PageLoader label="Restoring your session…" /> : children}
     </AuthContext.Provider>
   );
 };
