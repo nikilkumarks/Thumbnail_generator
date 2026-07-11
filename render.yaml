@@ -12,6 +12,9 @@ services:
         value: production
       - key: CLIENT_URL
         sync: false
+      # Render sets RENDER_EXTERNAL_URL automatically; also accepted by CORS
+      - key: FRONTEND_URL
+        sync: false
       - key: VITE_GOOGLE_CLIENT_ID
         sync: false
       - key: MONGO_URI
