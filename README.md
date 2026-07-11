@@ -35,11 +35,11 @@ Once you replace the images, the README displays them like this:
 
 ## How To Use The Platform
 
-1. Create a `.env` file for the frontend and set `VITE_GOOGLE_CLIENT_ID`.
-2. Create a `.env` file for the backend and set `MONGO_URI`, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `COHERE_API_KEY`, and `HUGGINGFACE_TOKEN`.
-3. Start the backend server.
-4. Start the frontend development server.
-5. Open the app in the browser.
+1. Copy `backend/.env.example` → `backend/.env` and fill in secrets.
+2. Copy `frontend/.env.example` → `frontend/.env` and set `VITE_GOOGLE_CLIENT_ID` (local dev only).
+3. Run `npm run install:all` from the repo root.
+4. For development: `npm run dev:backend` + `npm run dev:frontend`, open **http://localhost:5173**.
+5. For production-like local: `npm run build` then `npm start`, open **http://localhost:5000**.
 6. Register or sign in with email/password or Google.
 7. On the home screen, choose a preset or type a custom idea.
 8. Submit the prompt to generate a thumbnail.
@@ -48,40 +48,73 @@ Once you replace the images, the README displays them like this:
 
 ## Local Development
 
-Install dependencies for both apps first:
+**Option A — two terminals (hot reload, recommended for UI work)**
 
 ```bash
-cd backend
-npm install
-
-cd ../frontend
-npm install
+npm run install:all
 ```
 
-Run the backend:
+Terminal 1 — API:
 
 ```bash
-cd backend
-npm run dev
+npm run dev:backend
 ```
 
-Run the frontend:
+Terminal 2 — Vite dev server (proxies `/api` → backend):
 
 ```bash
-cd frontend
-npm run dev
+npm run dev:frontend
 ```
+
+Open **http://localhost:5173**
+
+**Option B — single server (matches production)**
+
+```bash
+npm run install:all
+npm run build
+cd backend && npm run dev
+```
+
+Open **http://localhost:5000** — frontend and API on one port.
+
+## Deploy on Render (single web service)
+
+The repo is set up so **one Node server** builds the React app and serves everything:
+
+1. Push to GitHub and connect the repo on [Render](https://render.com).
+2. Use the included `render.yaml` (or create a **Web Service** manually):
+   - **Build command:** `npm run install:all && npm run build`
+   - **Start command:** `npm start`
+   - **Health check:** `/api/health`
+3. Set environment variables in Render:
+
+| Variable | Notes |
+|----------|--------|
+| `NODE_ENV` | `production` |
+| `CLIENT_URL` | Your Render URL, e.g. `https://your-app.onrender.com` |
+| `VITE_GOOGLE_CLIENT_ID` | Same as Google OAuth client ID (needed at **build** time) |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `MONGO_URI` | MongoDB connection string |
+| `JWT_SECRET` | Random secret string |
+| `COHERE_API_KEY` | Cohere API key |
+| `HUGGINGFACE_TOKEN` | Hugging Face token |
+| `ADMIN_EMAIL` | Optional admin dashboard email |
+
+4. In Google Cloud Console, add your Render URL to **Authorized JavaScript origins** and redirect URIs.
+
+The frontend uses `baseURL: '/api'`, so no separate frontend deploy is required.
 
 ## Production Build
 
-Build the frontend for deployment:
+From the repo root:
 
 ```bash
-cd frontend
 npm run build
+npm start
 ```
 
-The backend serves the built frontend when `frontend/dist` exists.
+The backend serves `frontend/dist` when the build exists.
 
 ## Available Routes
 
@@ -100,12 +133,14 @@ API routes:
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/google`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
 - `POST /api/images/generate`
 - `GET /api/images/history`
 - `DELETE /api/images/:id`
 
 ## Notes
 
-- Auth state is stored in `localStorage` as a token plus user profile data.
+- Auth uses an httpOnly cookie (JWT) set by the backend. The frontend calls `/api/auth/me` on load to restore the session.
 - The app uses `baseURL: /api`, so frontend and backend should be served under the same origin in production.
 - `render.yaml` is configured to build the frontend and start the backend service.

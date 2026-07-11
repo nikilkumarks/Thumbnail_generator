@@ -9,7 +9,9 @@ import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Security from './pages/Security';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminHealth from './pages/AdminHealth';
 import ConsentBanner from './components/ConsentBanner';
+import ThemeBridge from './components/ThemeBridge';
 
 function App() {
   // Load Client ID from environment variables
@@ -19,6 +21,7 @@ function App() {
     <Router>
       <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
         <AuthProvider>
+          <ThemeBridge />
           <div className="App">
             <Routes>
               {/* Protected Public Routes Logic:
@@ -33,6 +36,7 @@ function App() {
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/security" element={<Security />} />
+              <Route path="/admin" element={<AdminHealth />} />
             </Routes>
             <ConsentBanner />
           </div>

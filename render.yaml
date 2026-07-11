@@ -1,9 +1,28 @@
 services:
   - type: web
-    env: node
-    name: youtube-thumbnail-ai-backend
+    name: promptvision-studio
+    runtime: node
     plan: free
-    buildCommand: cd frontend && npm ci --include=dev && npm run build && cd ../backend && npm ci
-    startCommand: cd backend && npm start
-    autoDeploy: true
+    buildCommand: npm run install:all && npm run build
+    startCommand: npm start
     healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CLIENT_URL
+        sync: false
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: COHERE_API_KEY
+        sync: false
+      - key: HUGGINGFACE_TOKEN
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
