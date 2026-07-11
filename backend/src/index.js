@@ -30,18 +30,32 @@ if (isProduction) {
   app.set('trust proxy', 1);
 }
 
-const allowedOrigins = [
-  process.env.CLIENT_URL,
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'http://localhost:5000',
-  'http://127.0.0.1:5000',
-].filter(Boolean);
+const normalizeOrigin = (url) => (url ? url.replace(/\/$/, '') : null);
+
+const allowedOrigins = new Set(
+  [
+    process.env.CLIENT_URL,
+    process.env.FRONTEND_URL,
+    process.env.RENDER_EXTERNAL_URL,
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:5000',
+    'http://127.0.0.1:5000',
+  ]
+    .map(normalizeOrigin)
+    .filter(Boolean)
+);
+
+console.log('CORS allowed origins:', [...allowedOrigins].join(', ') || '(none)');
 
 app.use(cors({
   origin(origin, callback) {
-    // Same-origin / server-to-server requests have no Origin header
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    const normalized = normalizeOrigin(origin);
+    if (allowedOrigins.has(normalized)) {
       callback(null, true);
       return;
     }
