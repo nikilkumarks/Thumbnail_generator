@@ -3,7 +3,7 @@ services:
     name: promptvision-studio
     runtime: node
     plan: free
-    buildCommand: npm run install:all && npm run build
+    buildCommand: npm ci --prefix frontend --include=dev && npm ci --prefix backend --omit=dev && npm run build --prefix frontend
     startCommand: npm start
     healthCheckPath: /api/health
     autoDeploy: true
