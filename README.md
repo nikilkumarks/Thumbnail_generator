@@ -137,7 +137,7 @@ API routes:
 - `POST /api/auth/logout`
 - `POST /api/images/generate`
 - `GET /api/images/history`
-- `DELETE /api/images/:id`
+- `DELETE /api/images/threads/:id`
 
 ## Notes
 
