@@ -6,7 +6,7 @@ import LoginModal from '../components/LoginModal';
 import Sidebar from '../components/Sidebar';
 import Footer from '../components/Footer';
 import BrandLogo from '../components/BrandLogo';
-import PromptToolsPanel, { buildPromptModifiers } from '../components/PromptToolsPanel';
+import PromptToolsPanel, { buildPromptModifiers, DEFAULT_PROMPT_TOOLS } from '../components/PromptToolsPanel';
 import ImagePreviewModal from '../components/ImagePreviewModal';
 import GeneratedThumbnail, { PromptBubble } from '../components/GeneratedThumbnail';
 import ThumbnailEditor from '../components/ThumbnailEditor';
@@ -24,14 +24,23 @@ const STROKE = 2;
 const ICON = { sm: 14, md: 16, lg: 18, xl: 24 };
 const MAX_REF_BYTES = 5 * 1024 * 1024;
 
+const DEFAULT_TOOLS = DEFAULT_PROMPT_TOOLS;
+
+const loadSavedTools = () => {
+  try {
+    const saved = localStorage.getItem('pv-prompt-tools');
+    return saved ? { ...DEFAULT_TOOLS, ...JSON.parse(saved) } : DEFAULT_TOOLS;
+  } catch {
+    return DEFAULT_TOOLS;
+  }
+};
+
 const PACKS = [
   { title: 'Gamer Pack', desc: 'High-contrast, action-packed gaming visual previews.', icon: Gamepad2, prompt: 'High-intensity, cinematic gaming action scene with glowing effects and bold highlights.' },
   { title: 'Lifestyle Vlog', desc: 'Natural, airy, and inviting travel or lifestyle themes.', icon: Camera, prompt: 'Minimalist, bright, and vibrant travel vlog thumbnail with natural lighting and soft focus.' },
   { title: 'Tech Review', desc: 'Sharp, precision-focused hardware and gadget setups.', icon: Monitor, prompt: 'High-tech, sleek hardware setup with professional studio lighting and clean depth of field.' },
   { title: 'Educational', desc: 'Clean, structured, and informative visual layouts.', icon: Stars, prompt: 'Informative, clean tutorial thumbnail with easy-to-read layout and clear focus on the subject.' },
 ];
-
-const DEFAULT_TOOLS = { style: 'default', mood: null, textOverlay: 'none' };
 
 const Home = () => {
   const [prompt, setPrompt] = useState('');
@@ -44,7 +53,7 @@ const Home = () => {
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [referenceImage, setReferenceImage] = useState(null);
-  const [promptTools, setPromptTools] = useState(DEFAULT_TOOLS);
+  const [promptTools, setPromptTools] = useState(loadSavedTools);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
   const [sizePreset, setSizePreset] = useState('youtube');
@@ -65,6 +74,10 @@ const Home = () => {
   const resetTextareaHeight = useCallback(() => {
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('pv-prompt-tools', JSON.stringify(promptTools));
+  }, [promptTools]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -121,16 +134,8 @@ const Home = () => {
     }
   }, [user]);
 
-  const buildFinalPrompt = (basePrompt) => {
-    let final = basePrompt.trim();
-    final += buildPromptModifiers(promptTools);
-    if (referenceImage) {
-      final += ' Match the composition, color palette, and visual mood of the attached reference image.';
-    }
-    return final.trim();
-  };
-
   const appendGeneration = (data) => {
+    const genId = data.generationId ? String(data.generationId) : null;
     setMessages((prev) => {
       const next = [...prev];
       for (let i = next.length - 1; i >= 0; i -= 1) {
@@ -144,7 +149,7 @@ const Home = () => {
         content: data.imageUrl,
         prompt: data.userPrompt || data.refinedPrompt,
         refinedPrompt: data.refinedPrompt,
-        id: data.generationId || Date.now(),
+        id: genId,
         width: data.width,
         height: data.height,
         sizePreset: data.sizePreset,
@@ -169,7 +174,7 @@ const Home = () => {
             content: data.imageUrl,
             prompt: payload.userPrompt || payload.prompt,
             refinedPrompt: data.refinedPrompt,
-            id: data.generationId,
+            id: data.generationId ? String(data.generationId) : null,
             width: data.width,
             height: data.height,
             sizePreset: data.sizePreset,
@@ -199,17 +204,17 @@ const Home = () => {
     if (!prompt.trim() || generating) return;
     if (!user) { setIsModalOpen(true); return; }
 
-    const displayPrompt = prompt.trim();
-    const apiPrompt = buildFinalPrompt(displayPrompt);
     const refForMessage = referenceImage?.dataUrl ?? null;
+
+    const displayPrompt = prompt.trim();
 
     setMessages((prev) => [...prev, { type: 'prompt', content: displayPrompt, referenceUrl: refForMessage }]);
     setPrompt('');
     resetTextareaHeight();
 
     const payload = {
-      prompt: apiPrompt,
       userPrompt: displayPrompt,
+      promptTools,
       conversationId: currentId,
       referenceImage: referenceImage?.dataUrl,
       sizePreset,
@@ -237,7 +242,7 @@ const Home = () => {
         content: gen.imageUrl,
         prompt: gen.userPrompt || gen.prompt,
         refinedPrompt: gen.refinedPrompt || gen.prompt,
-        id: gen._id,
+        id: gen._id ? String(gen._id) : null,
         width: gen.width,
         height: gen.height,
         isFavorite: gen.isFavorite,
@@ -250,7 +255,7 @@ const Home = () => {
 
   const handleDeleteWork = async (id) => {
     try {
-      await api.delete(`/images/${id}`);
+      await api.delete(`/images/threads/${id}`);
       setRawHistory((prev) => prev.filter((item) => item._id !== id));
       if (currentId === id) { setMessages([]); setCurrentId(null); }
     } catch (err) {
@@ -280,13 +285,19 @@ const Home = () => {
   };
 
   const handleToggleFavorite = async (msg) => {
-    if (!msg.id) return;
+    const genId = msg.id ? String(msg.id) : null;
+    if (!genId) {
+      setError('Cannot favorite — thumbnail not saved yet. Try again after generation completes.');
+      return;
+    }
     try {
-      const { data } = await api.patch(`/images/generations/${msg.id}/favorite`);
-      setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, isFavorite: data.isFavorite } : m)));
+      const { data } = await api.patch(`/images/generations/${genId}/favorite`);
+      setMessages((prev) => prev.map((m) => (
+        m.type === 'image' && String(m.id) === genId ? { ...m, isFavorite: data.isFavorite } : m
+      )));
       fetchHistory();
     } catch (err) {
-      setError('Could not update favorite.');
+      setError(err.response?.data?.message || 'Could not update favorite.');
     }
   };
 
@@ -313,7 +324,7 @@ const Home = () => {
           content: data.imageUrl,
           prompt: editTarget.prompt,
           refinedPrompt: data.refinedPrompt,
-          id: data.generationId,
+          id: data.generationId ? String(data.generationId) : null,
           width: data.width,
           height: data.height,
           isFavorite: false,
@@ -515,7 +526,13 @@ const Home = () => {
             </div>
           </div>
 
-          <PromptToolsPanel open={toolsOpen} onClose={() => setToolsOpen(false)} tools={promptTools} onChange={setPromptTools} />
+          <PromptToolsPanel
+            open={toolsOpen}
+            onClose={() => setToolsOpen(false)}
+            tools={promptTools}
+            onChange={setPromptTools}
+            onReset={() => setPromptTools(DEFAULT_TOOLS)}
+          />
           <Footer compact />
         </div>
       </div>

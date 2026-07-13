@@ -1,6 +1,10 @@
 const { CohereClient } = require('cohere-ai');
 const { HfInference } = require('@huggingface/inference');
 const { getSizePreset } = require('./sizePresets');
+const { applyPromptTools } = require('./promptTools');
+
+const FLUX_MODEL = 'black-forest-labs/FLUX.1-schnell';
+const IMG2IMG_MODEL = 'stabilityai/stable-diffusion-2-1';
 
 const dataUrlToBlob = (dataUrl) => {
   const [header, base64] = dataUrl.split(',');
@@ -22,7 +26,7 @@ const refinePrompt = async (cohere, userPrompt, { hasReference = false, isEdit =
   }
 
   if (isEdit && editInstruction) {
-    instruction = `The user wants to edit an existing thumbnail. Apply ONLY this change while preserving the rest of the image:\n${editInstruction}\n\nOriginal context: ${userPrompt}`;
+    instruction = `Create a YouTube thumbnail image description that applies this edit to an existing thumbnail while keeping the main subject and layout:\nEdit request: ${editInstruction}\n\nOriginal idea: ${userPrompt}\n\nDescribe the final thumbnail in detail for image generation.`;
   }
 
   const response = await cohere.chat({
@@ -35,7 +39,7 @@ const refinePrompt = async (cohere, userPrompt, { hasReference = false, isEdit =
 
 const generateFromText = async (hf, prompt, { width, height }) => {
   return hf.textToImage({
-    model: 'black-forest-labs/FLUX.1-schnell',
+    model: FLUX_MODEL,
     inputs: prompt,
     parameters: { width, height },
   });
@@ -45,7 +49,7 @@ const generateFromReference = async (hf, prompt, referenceDataUrl, { width, heig
   const refBlob = dataUrlToBlob(referenceDataUrl);
   try {
     return await hf.imageToImage({
-      model: 'stabilityai/stable-diffusion-2-1',
+      model: IMG2IMG_MODEL,
       inputs: refBlob,
       parameters: {
         prompt,
@@ -56,21 +60,41 @@ const generateFromReference = async (hf, prompt, referenceDataUrl, { width, heig
     });
   } catch (err) {
     console.warn('Reference img2img fallback to text-only:', err.message);
-    return generateFromText(hf, `${prompt}. Match the style and composition of the user's reference image closely.`, { width, height });
+    return generateFromText(
+      hf,
+      `${prompt}. Match the style and composition of the user's reference image closely.`,
+      { width, height }
+    );
   }
 };
 
-const editImage = async (hf, sourceDataUrl, editInstruction) => {
+/** Edit via img2img (SD 2.1) — pix2pix not on HF Inference Providers */
+const editImage = async (hf, refinedPrompt, sourceDataUrl, { width, height }) => {
   const sourceBlob = dataUrlToBlob(sourceDataUrl);
-  return hf.imageToImage({
-    model: 'timbrooks/instruct-pix2pix',
-    inputs: sourceBlob,
-    parameters: { prompt: editInstruction },
-  });
+  try {
+    return await hf.imageToImage({
+      model: IMG2IMG_MODEL,
+      inputs: sourceBlob,
+      parameters: {
+        prompt: refinedPrompt,
+        strength: 0.58,
+        width,
+        height,
+      },
+    });
+  } catch (err) {
+    console.warn('Edit img2img unavailable, using text regeneration:', err.message);
+    return generateFromText(
+      hf,
+      `${refinedPrompt}. Keep the same subject, pose, and layout as the original thumbnail while applying the edit.`,
+      { width, height }
+    );
+  }
 };
 
 const runGeneration = async ({
   userPrompt,
+  promptTools,
   referenceImage,
   sourceImage,
   editInstruction,
@@ -88,7 +112,9 @@ const runGeneration = async ({
   const hf = new HfInference(hfToken);
 
   const isEdit = Boolean(sourceImage && editInstruction);
-  const refinedPrompt = await refinePrompt(cohere, userPrompt, {
+  const promptWithTools = isEdit ? userPrompt : applyPromptTools(userPrompt, promptTools);
+
+  const refinedPrompt = await refinePrompt(cohere, promptWithTools, {
     hasReference: Boolean(referenceImage),
     isEdit,
     editInstruction,
@@ -96,7 +122,7 @@ const runGeneration = async ({
 
   let blob;
   if (isEdit) {
-    blob = await editImage(hf, sourceImage, editInstruction);
+    blob = await editImage(hf, refinedPrompt, sourceImage, { width, height });
   } else if (referenceImage) {
     blob = await generateFromReference(hf, refinedPrompt, referenceImage, { width, height });
   } else {
@@ -112,6 +138,7 @@ const runGeneration = async ({
     width,
     height,
     sizePreset,
+    promptTools: promptTools || null,
   };
 };
 

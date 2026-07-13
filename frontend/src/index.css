@@ -1612,8 +1612,19 @@ html {
   color: #71717a;
 }
 
-[data-theme='light'] .keyboard-hints {
-  color: #a1a1aa;
+[data-theme='light'] .prompt-tools-title {
+  color: #18181b;
+}
+
+.prompt-tools-summary {
+  margin-top: var(--space-2);
+  font-size: 0.72rem;
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+[data-theme='light'] .prompt-tools-summary {
+  color: #cc0000;
 }
 
 [data-theme='light'] .footer-links a {

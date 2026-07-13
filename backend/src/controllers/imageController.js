@@ -48,9 +48,17 @@ const saveGeneration = async (req, result, { conversationId, parentGeneration, e
 // @desc    Generate a thumbnail image
 // @route   POST /api/images/generate
 const generateImage = async (req, res) => {
-  const { prompt, conversationId, referenceImage, sizePreset = 'youtube', userPrompt: rawUserPrompt } = req.body;
+  const {
+    prompt,
+    conversationId,
+    referenceImage,
+    sizePreset = 'youtube',
+    userPrompt: rawUserPrompt,
+    promptTools,
+  } = req.body;
 
-  if (!prompt) {
+  const userPrompt = (rawUserPrompt || prompt || '').trim();
+  if (!userPrompt) {
     return res.status(400).json({ message: 'Prompt is required' });
   }
 
@@ -58,16 +66,13 @@ const generateImage = async (req, res) => {
     return res.status(400).json({ message: 'Invalid size preset' });
   }
 
-  const userPrompt = rawUserPrompt || prompt;
-
   try {
     const result = await runGeneration({
-      userPrompt: prompt,
+      userPrompt,
+      promptTools,
       referenceImage,
       sizePreset,
     });
-
-    result.userPrompt = userPrompt;
 
     const { gen, convo } = await saveGeneration(req, result, { conversationId });
 
@@ -78,7 +83,7 @@ const generateImage = async (req, res) => {
       refinedPrompt: gen.refinedPrompt,
       prompt: gen.refinedPrompt,
       conversationId: convo._id,
-      generationId: gen._id,
+      generationId: String(gen._id),
       sizePreset: gen.sizePreset,
       width: gen.width,
       height: gen.height,
@@ -118,8 +123,6 @@ const editImage = async (req, res) => {
       sizePreset,
     });
 
-    result.userPrompt = userPrompt || editInstruction;
-
     const { gen, convo } = await saveGeneration(req, result, {
       conversationId,
       parentGeneration: parentGenerationId,
@@ -132,7 +135,7 @@ const editImage = async (req, res) => {
       userPrompt: gen.userPrompt,
       refinedPrompt: gen.refinedPrompt,
       conversationId: convo._id,
-      generationId: gen._id,
+      generationId: String(gen._id),
       sizePreset: gen.sizePreset,
       width: gen.width,
       height: gen.height,
@@ -190,14 +193,23 @@ const getHistory = async (req, res) => {
 // @route   PATCH /api/images/generations/:id/favorite
 const toggleFavorite = async (req, res) => {
   try {
-    const gen = await Generation.findOne({ _id: req.params.id, user: req.user._id });
+    const { id } = req.params;
+    const gen = await Generation.findOne({ _id: id, user: req.user._id });
     if (!gen) return res.status(404).json({ message: 'Not found' });
 
-    gen.isFavorite = !gen.isFavorite;
-    await gen.save();
+    const updated = await Generation.findByIdAndUpdate(
+      gen._id,
+      { isFavorite: !Boolean(gen.isFavorite) },
+      { new: true, runValidators: false }
+    );
 
-    res.json({ success: true, isFavorite: gen.isFavorite, generationId: gen._id });
+    res.json({
+      success: true,
+      isFavorite: updated.isFavorite,
+      generationId: String(updated._id),
+    });
   } catch (error) {
+    console.error('Favorite toggle failed:', error.message);
     res.status(500).json({ message: 'Favorite toggle failed' });
   }
 };
